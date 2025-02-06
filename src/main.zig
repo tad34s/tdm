@@ -6,7 +6,7 @@ const commands = @import("commands.zig");
 const App = yazap.App;
 const Arg = yazap.Arg;
 
-pub fn main() anyerror!void {
+pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
 
@@ -20,7 +20,7 @@ pub fn main() anyerror!void {
 
     inline for (commands.commands) |subcommand| {
         if (matches.subcommandMatches(subcommand)) |sub_matches| {
-            @field(commands, subcommand)(&sub_matches);
+            try @field(commands, subcommand)(&sub_matches);
             return;
         }
     }

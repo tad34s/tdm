@@ -25,4 +25,16 @@
 ```
 
 
+## TODOS
+- thermos or tdm?
+- prepare sample config
+- [ ] init
+   - [ ] repo jako optinal arg?
+   
+
+## Ideas
+- add `.gitignore` to a thermos repo, will contain `/.thermos-cache`
+- in this repo the hash of the config and src will be stored, -> quickly detecting changes.
+
+
 

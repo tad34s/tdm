@@ -13,6 +13,8 @@ pub fn configureCli(app: *App) !*Command {
     var init_cmd = app.createCommand("init", "Create a directory with a sample dotfiles repo.");
     try init_cmd.addArgs(&[_]Arg{
         Arg.singleValueOption("name", 'n', "Name of the created directory"),
+        Arg.singleValueOption("git-repo", 'g', "Link to a git repo"),
+        Arg.singleValueOption("profile", 'p', "Select profile"), // Only available if pulling from git repo
     });
 
     // Add
@@ -41,18 +43,18 @@ pub fn configureCli(app: *App) !*Command {
     });
 
     //Apply
-    var apply_cmd = app.createCommand("apply", "Apply the dotfiles, if no config is specified apply the last config used.");
+    var apply_cmd = app.createCommand("apply", "Apply the dotfiles, if no profile is specified apply the last profile used.");
     try apply_cmd.addArgs(&[_]Arg{
-        Arg.singleValueOption("config", 'c', "If it is left empty will revert to using only global variables."),
+        Arg.singleValueOption("profile", 'p', "If it is left empty will revert to using only global variables."),
     });
 
     //Use
     var use_cmd = app.createCommand("use", "Pick a tdm dotfiles repo which to use.");
     try use_cmd.addArgs(&[_]Arg{
         Arg.singleValueOption("git-repo", 'g', "Pull tdm dotfiles from a git repository"),
-        Arg.singleValueOption("path", 'p', "Relative or absolute path to the new tdm repo"),
+        Arg.singleValueOption("dir", 'd', "Relative or absolute path to the new tdm repo"),
         Arg.singleValueOption("name", 'n', "Change the name of the repo"),
-        Arg.singleValueOption("config", 'c', "Apply the config specified"),
+        Arg.singleValueOption("profile", 'p', "Apply the profile specified"),
     });
 
     //Update
