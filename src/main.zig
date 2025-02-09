@@ -16,11 +16,16 @@ pub fn main() !void {
     defer app.deinit();
     _ = try cli.configureCli(&app);
 
-    const matches = try app.parseProcess();
+    const matches = app.parseProcess() catch |err| {
+        if (err == error.UnrecognizedCommand) {
+            return; // Handle the error as needed
+        }
+        return err; // Propagate other errors
+    };
 
     inline for (commands.commands) |subcommand| {
         if (matches.subcommandMatches(subcommand)) |sub_matches| {
-            try @field(commands, subcommand)(&sub_matches);
+            try @field(commands, subcommand)(allocator, &sub_matches);
             return;
         }
     }

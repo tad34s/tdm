@@ -9,12 +9,11 @@ pub fn configureCli(app: *App) !*Command {
     var tdm: *Command = app.rootCommand();
     tdm.setProperty(.help_on_empty_args);
 
-    // Init
-    var init_cmd = app.createCommand("init", "Create a directory with a sample dotfiles repo.");
-    try init_cmd.addArgs(&[_]Arg{
+    // Create
+    var create_cmd = app.createCommand("create", "Create a directory with a sample dotfiles repo.");
+    try create_cmd.addArgs(&[_]Arg{
         Arg.singleValueOption("name", 'n', "Name of the created directory"),
-        Arg.singleValueOption("git-repo", 'g', "Link to a git repo"),
-        Arg.singleValueOption("profile", 'p', "Select profile"), // Only available if pulling from git repo
+        Arg.positional("repo", "Link to a git repository", null),
     });
 
     // Add
@@ -48,13 +47,15 @@ pub fn configureCli(app: *App) !*Command {
         Arg.singleValueOption("profile", 'p', "If it is left empty will revert to using only global variables."),
     });
 
-    //Use
-    var use_cmd = app.createCommand("use", "Pick a tdm dotfiles repo which to use.");
+    // Use
+    // TODO: call bootstrap on first use
+    // - detect first use with hashed?
+    // - loading the toml atd.
+    var use_cmd = app.createCommand("use", "Pick which tdm dotfiles repo to use.");
     try use_cmd.addArgs(&[_]Arg{
-        Arg.singleValueOption("git-repo", 'g', "Pull tdm dotfiles from a git repository"),
-        Arg.singleValueOption("dir", 'd', "Relative or absolute path to the new tdm repo"),
-        Arg.singleValueOption("name", 'n', "Change the name of the repo"),
+        Arg.positional("Dir", "Relative or absolute path to the new tdm repo", null),
         Arg.singleValueOption("profile", 'p', "Apply the profile specified"),
+        Arg.booleanOption("bootstrap", 'b', "Run the bootstrap again"),
     });
 
     //Update
@@ -66,7 +67,7 @@ pub fn configureCli(app: *App) !*Command {
     const git_cmd = app.createCommand("git", "Call git commands from the dotfiles repo in use");
 
     try tdm.addSubcommands(&[_]yazap.Command{
-        init_cmd,
+        create_cmd,
         add_cmd,
         save_cmd,
         edit_cmd,
