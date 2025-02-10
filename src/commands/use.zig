@@ -1,7 +1,9 @@
 const std = @import("std");
 const yazap = @import("yazap");
 const State = @import("../State.zig");
+
 const print_to_user = @import("../print_to_user.zig");
+const getDataDir = @import("../fs_utils.zig").getDataDir;
 
 const printError = print_to_user.printError;
 const printSuccess = print_to_user.printSuccess;
@@ -19,11 +21,11 @@ pub fn useCmd(allocator: std.mem.Allocator, matches: *const yazap.ArgMatches) vo
     };
 
     // Create state
-    const new_state = State{
-        .dotfiles_dir = dotfiles_dir,
-        .profile_name = matches.getSingleValue("profile"),
-        .bootstrap = matches.containsArg("bootstrap"),
-    };
+    var new_state = State.init(
+        allocator,
+        dotfiles_dir,
+        matches.getSingleValue("profile"),
+    );
 
     // Check validity
     if (!new_state.checkValidDotfiles()) {
@@ -41,19 +43,19 @@ pub fn useCmd(allocator: std.mem.Allocator, matches: *const yazap.ArgMatches) vo
     };
 
     // Apply state
+    new_state.loadVars() catch |err| {
+        printError("Failed parsing config.toml: {s}", err);
+    };
     new_state.applyConfig() catch |err| {
         printError("Failed to apply the specified dotfiles: {s}", err);
     };
 
+    // Run bootstrap
+    if (matches.containsArg("bootstrap")) {
+        new_state.runBootstrap() catch |err| {
+            printError("Failed running bootstrap: {s}", err);
+        };
+    }
+
     printSuccess("Successfully switched dotfiles!\n", .{});
-}
-
-fn getDataDir(allocator: std.mem.Allocator) !std.fs.Dir {
-    const data_dir: []const u8 = try std.fs.getAppDataDir(allocator, "tdm");
-    defer allocator.free(data_dir);
-
-    return std.fs.cwd().makeOpenPath(
-        data_dir,
-        .{},
-    );
 }

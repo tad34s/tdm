@@ -6,15 +6,17 @@ const Self = @This();
 allocator: std.mem.Allocator,
 dotfiles_dir: std.fs.Dir,
 profile_name: ?[]const u8,
-bootstrap: bool = false,
 config_vars: ?ConfigVars = null,
 
-pub fn init(allocator: std.mem.Allocator, dotfiles_location: []const u8, profile_name: ?[]const u8, bootstrap: bool) Self {
+pub fn init(
+    allocator: std.mem.Allocator,
+    dotfiles_dir: std.fs.Dir,
+    profile_name: ?[]const u8,
+) Self {
     return Self{
         .allocator = allocator,
-        .dotfiles_location = dotfiles_location,
+        .dotfiles_dir = dotfiles_dir,
         .profile_name = profile_name,
-        .bootstrap = bootstrap,
     };
 }
 
@@ -56,17 +58,31 @@ pub fn checkValidDotfiles(self: *const Self) bool {
     return true;
 }
 
-// TODO:
-/// Load profile from the repo.
-/// Popluates the config_vars field.
-fn loadProfile(self: *Self) !void {
-    std.debug.assert(self.config_vars == null);
-    self.config_vars = ConfigVars.init();
-    _ = self;
-    return .{};
+pub fn loadVars(self: *Self) !void {
+    std.debug.print("Loading vars...\n", .{});
+    self.config_vars = try ConfigVars.init(self.allocator, self);
 }
 
+/// Regenerate and apply the dotfiles
+/// Vars have to be loaded
 pub fn applyConfig(self: *const Self) !void {
     std.debug.print("Applying config...\n", .{});
-    _ = self;
+    std.debug.assert(self.config_vars != null);
+    // try clearGenDir();
+    // const virt_files = try generateFiles(&config_vars);
+    // try virt_files.writeToFs();
+    // try stowGenFiles();
+}
+
+/// Call the bootstrap script.
+/// Vars need to be loaded.
+pub fn runBootstrap(self: *Self) !void {
+    std.debug.print("Running bootstrap...\n", .{});
+    std.debug.assert(self.config_vars != null);
+}
+
+// TODO:
+/// Clear the tdm/gen directory
+fn clearGenDir() !void {
+    return;
 }
