@@ -53,10 +53,11 @@ pub fn configureCli(app: *App) !*Command {
     // - loading the toml atd.
     var use_cmd = app.createCommand("use", "Pick which tdm dotfiles repo to use.");
     try use_cmd.addArgs(&[_]Arg{
-        Arg.positional("Dir", "Relative or absolute path to the new tdm repo", null),
+        Arg.positional("DIR", "Relative or absolute path to the new tdm repo", null),
         Arg.singleValueOption("profile", 'p', "Apply the profile specified"),
         Arg.booleanOption("bootstrap", 'b', "Run the bootstrap again"),
     });
+    use_cmd.setProperty(.help_on_empty_args);
 
     //Update
     const update_cmd = app.createCommand("update", "Pull changes to the dotfiles repo, apply them");

@@ -1,7 +1,11 @@
 const std = @import("std");
 const yazap = @import("yazap");
+const print_to_user = @import("../print_to_user.zig");
 
-pub fn createCmd(allocator: std.mem.Allocator, matches: *const yazap.ArgMatches) !void {
+const printError = print_to_user.printError;
+const printSuccess = print_to_user.printSuccess;
+
+pub fn createCmd(allocator: std.mem.Allocator, matches: *const yazap.ArgMatches) void {
     var dir_name: []const u8 = "dotfiles";
 
     if (matches.getSingleValue("name")) |name| {
@@ -9,10 +13,16 @@ pub fn createCmd(allocator: std.mem.Allocator, matches: *const yazap.ArgMatches)
     }
 
     if (matches.getSingleValue("repo")) |repo_link| {
-        try pullRepo(allocator, repo_link, dir_name);
+        pullRepo(allocator, repo_link, dir_name) catch |err| {
+            printError("Failed pulling repo: {s}", err);
+        };
     } else {
-        try createSampleRepo(dir_name);
+        createSampleRepo(dir_name) catch |err| {
+            printError("Error accessing filesystem: {s}", err);
+        };
     }
+
+    printSuccess("New dotfiles created successfully.\n", .{});
 }
 
 fn pullRepo(allocator: std.mem.Allocator, link: []const u8, dir_name: ?[]const u8) !void {
@@ -34,9 +44,7 @@ fn pullRepo(allocator: std.mem.Allocator, link: []const u8, dir_name: ?[]const u
     const term = try child.wait();
 
     if (term.Exited != 0) {
-        std.debug.print("git pull failed with exit code: {}\n", .{term.Exited});
-    } else {
-        std.debug.print("git pull successful!\n", .{});
+        return error.GitPullFailed;
     }
 }
 
@@ -64,6 +72,10 @@ const sample_file =
     \\  ".picom.tdmt"
     \\]
     \\
+    \\ignore-files = [ # ignore when recursively adding
+    \\ ".lazy-lock.json"
+    \\]
+    \\
     \\[[profile]]                       # profile
     \\name = "linux-dev"
     \\git-email = "bacatade@fit.cvut.cz"  # var
@@ -83,3 +95,18 @@ const sample_file =
     \\  "nvim"
     \\]
 ;
+
+test createSampleRepo {
+    const tmp_dir = try std.testing.tmpDir();
+    defer tmp_dir.close();
+
+    const test_dir = try tmp_dir.makeOpenPath("test_dotfiles", .{});
+    try createSampleRepo("test_dotfiles");
+
+    var file = try test_dir.openFile("config.toml", .{ .read = true });
+    defer file.close();
+
+    var buffer: [256]u8 = undefined;
+    const bytes_read = try file.read(&buffer);
+    std.testing.expect(bytes_read > 0);
+}

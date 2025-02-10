@@ -1,29 +1,59 @@
 const std = @import("std");
 const yazap = @import("yazap");
 const State = @import("../State.zig");
+const print_to_user = @import("../print_to_user.zig");
+
+const printError = print_to_user.printError;
+const printSuccess = print_to_user.printSuccess;
 
 pub fn useCmd(allocator: std.mem.Allocator, matches: *const yazap.ArgMatches) void {
-    const app_data_dir: std.fs.Dir = try std.fs.cwd().makeOpenPath(
-        try std.fs.getAppDataDir(allocator, "tdm"),
+
+    // Check if argument correct
+    if (matches.getSingleValue("DIR") == null) return;
+
+    const dotfiles_dir = std.fs.cwd().openDir(
+        matches.getSingleValue("DIR").?,
         .{},
-    );
-
-    const buffer_ptr = allocator.alloc(u8, std.fs.MAX_PATH_BYTES);
-    defer allocator.free(buffer_ptr);
-
-    const new_state = State{
-        .profile_name = matches.getSingleValue("profile"),
-        .file_location = app_data_dir.realpath(".", buffer_ptr),
+    ) catch |err| {
+        printError("Invalid directory provided: {s}", err);
     };
 
-    new_state.serialize(&app_data_dir);
+    // Create state
+    const new_state = State{
+        .dotfiles_dir = dotfiles_dir,
+        .profile_name = matches.getSingleValue("profile"),
+        .bootstrap = matches.containsArg("bootstrap"),
+    };
 
-    const config_vars = new_state.loadProfile();
-
-    // call bootstrap
-    if (matches.getSingleValue("bootstrap")) |_| {
-        config_vars.runBootstrap();
+    // Check validity
+    if (!new_state.checkValidDotfiles()) {
+        printError("Could not read dofiles repo: {s}", error.NotTDMRepo);
+        return;
     }
 
-    config_vars.applyConfig();
+    // Save to applications data directory
+    const data_dir = getDataDir(allocator) catch |err| {
+        printError("Could not access applications data directory: {s}", err);
+    };
+
+    new_state.serialize(&data_dir) catch |err| {
+        printError("Failed to serialize state: {s}", err);
+    };
+
+    // Apply state
+    new_state.applyConfig() catch |err| {
+        printError("Failed to apply the specified dotfiles: {s}", err);
+    };
+
+    printSuccess("Successfully switched dotfiles!\n", .{});
+}
+
+fn getDataDir(allocator: std.mem.Allocator) !std.fs.Dir {
+    const data_dir: []const u8 = try std.fs.getAppDataDir(allocator, "tdm");
+    defer allocator.free(data_dir);
+
+    return std.fs.cwd().makeOpenPath(
+        data_dir,
+        .{},
+    );
 }
