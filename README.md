@@ -45,5 +45,7 @@
 
 - jak fixnout to ze chci ignorovat files?
 
+- tdm diff zavolat na directory, 2. 3. vrstvu
+
 
 
