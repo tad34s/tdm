@@ -58,6 +58,7 @@ pub fn checkValidDotfiles(self: *const Self) bool {
     return true;
 }
 
+/// Parse the config.toml, save resulting variables.
 pub fn loadVars(self: *Self) !void {
     std.debug.print("Loading vars...\n", .{});
     self.config_vars = try ConfigVars.init(self.allocator, self);
@@ -77,8 +78,33 @@ pub fn applyConfig(self: *const Self) !void {
 /// Call the bootstrap script.
 /// Vars need to be loaded.
 pub fn runBootstrap(self: *Self) !void {
-    std.debug.print("Running bootstrap...\n", .{});
     std.debug.assert(self.config_vars != null);
+
+    try self.dotfiles_dir.setAsCwd();
+
+    var path_buffer: [std.fs.MAX_PATH_BYTES * 2]u8 = undefined;
+    var fixed_buff = std.heap.FixedBufferAllocator.init(&path_buffer);
+    var buff_alloc = fixed_buff.allocator();
+
+    const path_bin = try std.fs.path.join(buff_alloc, &[_][]const u8{ "bin", try self.config_vars.?.get("bootstrap") });
+    defer buff_alloc.free(path_bin);
+
+    std.debug.print("{s}\n", .{path_bin});
+
+    std.debug.print("Running bootstrap...\n", .{});
+    var child = std.process.Child.init(&[_][]const u8{path_bin}, self.allocator);
+
+    child.stdin_behavior = .Ignore;
+    child.stdout_behavior = .Inherit;
+    child.stderr_behavior = .Inherit;
+
+    // Run the command
+    try child.spawn();
+    const term = try child.wait();
+
+    if (term.Exited != 0) {
+        return error.BootstrapFailed;
+    }
 }
 
 // TODO:

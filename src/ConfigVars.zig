@@ -93,10 +93,15 @@ fn populate(self: *Self, state: *const State) !void {
     const profile_config_vars = organizeTable(self.allocator, profile);
     try global_config_vars.combineConfigVars(&profile_config_vars);
     try self.loadFromIntermed(&global_config_vars);
-    return;
 }
 
-// bude potreba stuff jake get val
+pub fn get(self: *Self, key: []const u8) ![]const u8 {
+    if (self.vars_map.get(key)) |val| {
+        return val;
+    } else {
+        return error.ValueNotFound;
+    }
+}
 
 pub fn deinit(self: *Self) void {
     var it = self.vars_map.iterator();
