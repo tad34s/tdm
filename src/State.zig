@@ -1,5 +1,6 @@
 const std = @import("std");
 const ConfigVars = @import("ConfigVars.zig");
+const getDataDir = @import("fs_utils.zig").getDataDir;
 
 const Self = @This();
 
@@ -26,8 +27,32 @@ pub fn deinit(self: *Self) void {
     }
 }
 
+/// Load state from the apps data directory.
+pub fn loadState(allocator: std.mem.Allocator) !Self {
+    const data_dir = try getDataDir(allocator);
+    var file = try data_dir.openFile("state", .{});
+    defer file.close();
+    var buf_reader = std.io.bufferedReader(file.reader());
+    var in_stream = buf_reader.reader();
+    var buf: [1024]u8 = undefined;
+    const dotfiles_path = try in_stream.reaUntilDelimiterOrEof(&buf, '\n');
+    const profile = try in_stream.reaUntilDelimiterOrEof(&buf, '\n');
+    const dotfiles_dir = try std.fs.cwd().openDir(dotfiles_path, .{});
+    return Self{
+        .allocator = allocator,
+        .dotfiles_dir = dotfiles_dir,
+        .profile_name = if (!std.mem.eql(u8, profile, "")) profile else null,
+    };
+}
+
+pub fn getSrc(self: *Self) !std.fs.Dir {
+    return try self.dotfiles_dir.openDir("src", .{});
+}
+
 /// Save the state members in a file called "state" in the `data_dir` directory.
-pub fn serialize(self: *const Self, data_dir: *const std.fs.Dir) !void {
+pub fn serialize(self: *const Self) !void {
+    const data_dir = try getDataDir(self.allocator);
+
     // open state file
     const state_file: std.fs.File = data_dir.openFile("state", .{ .mode = .write_only }) catch |err| blk: {
         if (err == error.FileNotFound) {

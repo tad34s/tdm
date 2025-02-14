@@ -3,7 +3,6 @@ const yazap = @import("yazap");
 const State = @import("../State.zig");
 
 const print_to_user = @import("../print_to_user.zig");
-const getDataDir = @import("../fs_utils.zig").getDataDir;
 
 const printError = print_to_user.printError;
 const printSuccess = print_to_user.printSuccess;
@@ -30,15 +29,11 @@ pub fn useCmd(allocator: std.mem.Allocator, matches: *const yazap.ArgMatches) vo
     // Check validity
     if (!new_state.checkValidDotfiles()) {
         printError("Could not read dofiles repo: {s}", error.NotTDMRepo);
-        return;
     }
 
     // Save to applications data directory
-    const data_dir = getDataDir(allocator) catch |err| {
-        printError("Could not access applications data directory: {s}", err);
-    };
 
-    new_state.serialize(&data_dir) catch |err| {
+    new_state.serialize() catch |err| {
         printError("Failed to serialize state: {s}", err);
     };
 

@@ -19,7 +19,7 @@ pub fn configureCli(app: *App) !*Command {
     // Add
     var add_cmd = app.createCommand("add", "Add a file or a directory to the dotfiles repo.");
     try add_cmd.addArgs(&[_]Arg{
-        Arg.positional("FILE", null, 0),
+        Arg.positional("FILE OR DIR", null, 0),
     });
 
     // Save
