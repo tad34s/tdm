@@ -7,13 +7,15 @@ const print_to_user = @import("../print_to_user.zig");
 const printError = print_to_user.printError;
 const printSuccess = print_to_user.printSuccess;
 
-pub fn useCmd(allocator: std.mem.Allocator, matches: *const yazap.ArgMatches) void {
+pub fn deployCmd(allocator: std.mem.Allocator, matches: *const yazap.ArgMatches) void {
 
     // Check if argument correct
-    if (matches.getSingleValue("DIR") == null) return;
+
+    if (matches.getSingleValue("REPO_OR_PATH") == null) return;
+    const repo_or_path = matches.getSingleValue("REPO_OR_PATH").?;
 
     const dotfiles_dir = std.fs.cwd().openDir(
-        matches.getSingleValue("DIR").?,
+        repo_or_path,
         .{},
     ) catch |err| {
         printError("Invalid directory provided: {s}", err);

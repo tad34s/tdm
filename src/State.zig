@@ -65,7 +65,7 @@ pub fn serialize(self: *const Self) !void {
 
     const file_writer = state_file.writer();
 
-    var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+    var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
     const path = try std.os.getFdPath(self.dotfiles_dir.fd, &path_buffer);
 
     try file_writer.print("{s}\n{s}\n", .{ path, self.profile_name orelse "" });
@@ -107,7 +107,7 @@ pub fn runBootstrap(self: *Self) !void {
 
     try self.dotfiles_dir.setAsCwd();
 
-    var path_buffer: [std.fs.MAX_PATH_BYTES * 2]u8 = undefined;
+    var path_buffer: [std.fs.max_path_bytes * 2]u8 = undefined;
     var fixed_buff = std.heap.FixedBufferAllocator.init(&path_buffer);
     var buff_alloc = fixed_buff.allocator();
 
@@ -130,10 +130,4 @@ pub fn runBootstrap(self: *Self) !void {
     if (term.Exited != 0) {
         return error.BootstrapFailed;
     }
-}
-
-// TODO:
-/// Clear the tdm/gen directory
-fn clearGenDir() !void {
-    return;
 }
