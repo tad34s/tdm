@@ -42,7 +42,7 @@ def deploy(path: str, profile: str, name: str | None, bootstrap: bool) -> None:
     curr_state.desymlink()
 
     # symlink new state
-    state = State.load(dotfiles_repo, profile)
+    state = State(dotfiles_repo, profile)
     state.symlink()
     if bootstrap:
         state.run_bootstrap()

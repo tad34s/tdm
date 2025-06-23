@@ -5,30 +5,31 @@ import click
 from print_to_user import error
 
 sample_config = """
-bootstrap = ""    # global var
+bootstrap = ""  # no script
 
-exclude-files = [                 # global exclude
- ".picom.tdmt"
+# files or directories to ignore when adding a whole repository
+ignore = [ 
+    ".lazy-lock.json"
 ]
 
-ignore-files = [ # ignore when recursively adding
-".lazy-lock.json"
-]
+# files or directories that are in the files.toml but we do not want to symlink them
+exclude = [".gitconfig"]
 
-[[profile]]                       # profile
-name = "linux-dev"
-bootstrap = "linux.sh"             # overriding
+[linux-dev]   
+bootstrap = "linux.sh"  # overriding
+include = [".gitconfig"] # overriding exclusion
 
-[[profile]]                       # profile
-name = "mac"
-include-files = [                        # special, includuje
- ".picom.tdmt"
-]
+[linux-dev-notebook]   
+bootstrap = "linux.sh"  # overriding
+include = [".gitconfig"] # overriding exclusion
 
-[[profile]]                       # profile
-name = "server"
-use-only = [                            # pouzivej jenom tyhle
- "nvim"
+[mac]
+bootstrap = "mac.sh"   # overriding
+exclude = ["picom.ini"] # adding to exclusion
+
+[server] 
+use-only = [  # if specifies will only use files or directories provided here
+    "nvim"
 ]
 """
 
