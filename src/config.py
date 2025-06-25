@@ -34,7 +34,7 @@ class Config:
 
         profile_config = data.get(profile)
         if profile_config is None:
-            error("Profile not found")
+            error("Profile not found.")
             return Config([], [], None, bootstrap)  # unreachable, for linter :D
 
         for file in profile_config.get("exclude", []):

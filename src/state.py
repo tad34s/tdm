@@ -6,12 +6,19 @@ import click
 from config import Config
 from file_tree import create_tree, symlink
 
+APP_NAME = "tdm"
+
 
 class State:
     FORK_DIR_NAME = "forks"
     FILE_DIR_NAME = "files"
     BASE_BACKUP_DIR = "base_backup"
     BACKUP_DIR = "original_files"
+    SYMLINKED_DIRS = "symlink_dirs"
+    REPO_DATA_DIR = ".tdm"
+    STATE_FILE_NAME = "state"
+    BINARY_DIR = "bin"
+    FORKED_DIRS_FILE = "forked_dirs"
 
     def __init__(self, repo: Path, profile: str) -> None:
         self.repo = repo
@@ -27,25 +34,33 @@ class State:
         return self.repo / self.FORK_DIR_NAME / self.profile
 
     @classmethod
-    def current(cls) -> "State":
+    def current(cls) -> "State | None":
         """Load the state currently used"""
-        app_dir = Path(click.get_app_dir("tdm"))
-        state_file = app_dir / "state"
+        app_dir = Path(click.get_app_dir(APP_NAME))
+        state_file = app_dir / cls.STATE_FILE_NAME
+        if not state_file.exists():
+            return None
         with state_file.open("r") as f:
             repo_dir = f.readline()
             profile = f.readline()
 
         return cls(Path(repo_dir), profile)
 
+    def save(self) -> None:
+        app_dir = Path(click.get_app_dir(APP_NAME))
+        state_file = app_dir / self.STATE_FILE_NAME
+        with state_file.open("w") as f:
+            f.writelines([str(self.repo), self.profile])
+
     def get_repo_data_dir(self, create=False) -> Path:
-        data_dir = self.repo / ".tdm/"
+        data_dir = self.repo / self.REPO_DATA_DIR
         if create:
             data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir
 
     @staticmethod
     def get_app_data_dir(create=False) -> Path:
-        app_dir = Path(click.get_app_dir("tdm"))
+        app_dir = Path(click.get_app_dir(APP_NAME))
         if create:
             app_dir.mkdir(parents=True, exist_ok=True)
         return app_dir
@@ -54,8 +69,8 @@ class State:
         """Run the provided bootstrap if available"""
         if self.config.bootstrap:
             subprocess.run(
-                str(self.repo / "bin" / self.config.bootstrap),
-                cwd=str(self.repo / "bin"),
+                str(self.repo / self.BINARY_DIR / self.config.bootstrap),
+                cwd=str(self.repo / self.BINARY_DIR),
             )
 
     @staticmethod
@@ -72,18 +87,29 @@ class State:
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.symlink_to(item, target_is_directory=item.is_dir())
 
+    @staticmethod
+    def desymlink_item(
+        symlink_location: Path, base_path: Path, backup_location: Path
+    ) -> None:
+        relative_path = symlink_location.relative_to(base_path)
+        target_path = backup_location / relative_path
+        if target_path.exists():
+            target_path.replace(symlink_location)
+        else:
+            relative_path.unlink()
+
     def __apply_forks(self) -> None:
         """Symlink each fork to source"""
 
         def recursively_symlink_forks(directory: Path) -> None:
             forked_dirs = []
-            forked_dirs_file = directory / "forked_dirs"
+            forked_dirs_file = directory / self.FORKED_DIRS_FILE
             if forked_dirs_file.exists():
                 with forked_dirs_file.open("r") as f:
                     forked_dirs = f.readlines()
 
             for item in directory.iterdir():
-                if item.name == "forked_dirs":
+                if item.name == self.FORKED_DIRS_FILE:
                     continue
                 if item.is_file(follow_symlinks=True) or (
                     item.is_dir()
@@ -112,7 +138,7 @@ class State:
         if not repo_data_dir.exists():
             symlink_dirs = set()
         else:
-            symlink_dirs_file = repo_data_dir / "symlink_dirs"
+            symlink_dirs_file = repo_data_dir / self.SYMLINKED_DIRS
             with symlink_dirs_file.open("r") as f:
                 symlink_dirs = set(f.readlines())
 
@@ -125,3 +151,27 @@ class State:
 
     def desymlink(self) -> None:
         """Desymlink all links made by the current state"""
+
+        def recursively_desymlink(
+            curr_dir: Path, symlink_location_base: Path, backup_location: Path
+        ) -> None:
+            for item in curr_dir.iterdir():
+                relative_path = item.relative_to(self.file_dir)
+                if (symlink_location_base / relative_path).is_symlink():
+                    self.desymlink_item(
+                        item,
+                        symlink_location_base,
+                        backup_location,
+                    )
+                elif item.is_dir():
+                    recursively_desymlink(item, symlink_location_base, backup_location)
+
+        # unapply symlinks to home
+        recursively_desymlink(
+            self.file_dir, Path.home(), self.get_repo_data_dir() / self.BACKUP_DIR
+        )
+
+        # unapply symlink to dotfiles (forks)
+        recursively_desymlink(
+            self.fork_dir, self.file_dir, self.get_app_data_dir() / self.BASE_BACKUP_DIR
+        )

@@ -1,6 +1,6 @@
 import click
 
-from commands.init import init
+from commands import deploy, init, vacate
 
 
 @click.group()
@@ -9,16 +9,10 @@ def cli() -> None:
 
 
 cli.add_command(init)
+cli.add_command(deploy)
+cli.add_command(vacate)
 
-#
-#
-# @cli.command()
-# @click.option("--keep", "-k", is_flag=True, help="Keep files after removing symlinks")
-# def vacate(keep):
-#     """Remove deployed symlinks"""
-#     vacate_profile(keep)
-#
-#
+
 # @cli.command()
 # @click.argument("profile_name")
 # @click.option("--bootstrap", "-b", is_flag=True, help="Run bootstrap script")

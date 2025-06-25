@@ -39,6 +39,11 @@ def deploy(path: str, profile: str, name: str | None, bootstrap: bool) -> None:
 
     # remove symlinks from current state
     curr_state = State.current()
+
+    if not curr_state:
+        error("No tdm repo deployed.")
+        return
+
     curr_state.desymlink()
 
     # symlink new state
