@@ -12,7 +12,7 @@ def is_git_url(arg: str) -> bool:
 
 
 def is_tdm_repo(repo_dir: Path) -> bool:
-    dirs = ["files", "forks", "bin"]
+    dirs = [State.FILE_DIR_NAME, State.FORK_DIR_NAME, State.BINARY_DIR]
     return all((repo_dir / subdir).exists() for subdir in dirs)
 
 
@@ -30,7 +30,7 @@ def deploy(path: str, profile: str, name: str | None, bootstrap: bool) -> None:
         repo = Repo.clone_from(path, path_to_dir)
         dotfiles_repo = Path(str(repo.working_tree_dir))
     else:
-        dotfiles_repo = Path(path)
+        dotfiles_repo = Path(path).resolve()
         if not dotfiles_repo.exists():
             error("Directory provided does not exist.")
 

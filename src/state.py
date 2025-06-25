@@ -18,7 +18,7 @@ class State:
     REPO_DATA_DIR = ".tdm"
     STATE_FILE_NAME = "state"
     BINARY_DIR = "bin"
-    FORKED_DIRS_FILE = "forked_dirs"
+    FORKED_DIRS_FILE = ".forked_dirs"
 
     def __init__(self, repo: Path, profile: str) -> None:
         self.repo = repo
@@ -77,20 +77,19 @@ class State:
     def symlink_item(
         item: Path, original_base: Path, new_base: Path, backup_location: Path
     ) -> None:
+        backup_location.mkdir(exist_ok=True, parents=True)
         relative_path = item.relative_to(original_base)
         target_path = new_base / relative_path
         if target_path.exists():
             if target_path.is_symlink():
                 target_path.unlink()
-            if target_path.is_file():
+            else:
                 target_path.replace(backup_location / relative_path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.symlink_to(item, target_is_directory=item.is_dir())
 
     @staticmethod
-    def desymlink_item(
-        symlink_location: Path, base_path: Path, backup_location: Path
-    ) -> None:
+    def desymlink_item(symlink_location: Path, base_path: Path, backup_location: Path) -> None:
         relative_path = symlink_location.relative_to(base_path)
         target_path = backup_location / relative_path
         if target_path.exists():
@@ -101,19 +100,12 @@ class State:
     def __apply_forks(self) -> None:
         """Symlink each fork to source"""
 
-        def recursively_symlink_forks(directory: Path) -> None:
-            forked_dirs = []
-            forked_dirs_file = directory / self.FORKED_DIRS_FILE
-            if forked_dirs_file.exists():
-                with forked_dirs_file.open("r") as f:
-                    forked_dirs = f.readlines()
-
+        def recursively_symlink_forks(directory: Path, forked_dirs: list[Path]) -> None:
             for item in directory.iterdir():
                 if item.name == self.FORKED_DIRS_FILE:
                     continue
                 if item.is_file(follow_symlinks=True) or (
-                    item.is_dir()
-                    and str(item.relative_to(self.fork_dir)) in forked_dirs
+                    item.is_dir() and str(item.relative_to(self.fork_dir)) in forked_dirs
                 ):
                     self.symlink_item(
                         item,
@@ -122,13 +114,18 @@ class State:
                         self.get_repo_data_dir(create=True) / self.BASE_BACKUP_DIR,
                     )
                 elif item.is_dir(follow_symlinks=True):
-                    recursively_symlink_forks(item)
+                    recursively_symlink_forks(item, forked_dirs)
 
         profile_forks = self.fork_dir
         if not profile_forks.exists():
             return
 
-        recursively_symlink_forks(profile_forks)
+        forked_dirs_file = self.fork_dir / self.FORKED_DIRS_FILE
+        with forked_dirs_file.open("r") as f:
+            forked_dirs_set = set(f.readlines())
+        forked_dirs = list(Path(x) for x in forked_dirs_set)
+
+        recursively_symlink_forks(profile_forks, forked_dirs)
 
     def symlink(self) -> None:
         """Symlink necessary dotfiles"""

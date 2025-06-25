@@ -40,7 +40,7 @@ def init(name: str) -> None:
     """Initialize new dotfiles repository"""
 
     dirs = ["files", "forks", "bin"]
-    dotfiles_repo = Path(name)
+    dotfiles_repo = Path(name).resolve()
     if dotfiles_repo.exists():
         error("Such directory already exists")
 

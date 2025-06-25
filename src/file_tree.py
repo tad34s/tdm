@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from os import curdir
 from pathlib import Path
 
 from state import State
@@ -18,7 +17,8 @@ def create_tree(
     symlink_dirs: set[str],
     in_symlink_dir: bool = False,
 ) -> TreeNode:
-    should_symlink_all = in_symlink_dir or str(curr_dir) in symlink_dirs
+    relative_path = curr_dir.relative_to(state.file_dir)
+    should_symlink_all = in_symlink_dir or str(relative_path) in symlink_dirs
     could_symlink_all = should_symlink_all
 
     children: list[TreeNode] = []
@@ -38,7 +38,6 @@ def create_tree(
                 could_symlink_all = False
             children.append(new_child)
 
-    relative_path = curr_dir.relative_to(state.file_dir)
     # the corresponding dir in real home
     corresponding_dir = Path.home() / relative_path
 
