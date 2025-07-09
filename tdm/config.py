@@ -1,7 +1,7 @@
 import tomllib
 from pathlib import Path
 
-from print_to_user import error
+from tdm.print_to_user import error
 
 DEFAULT_PROFILE_NAME = "base"
 

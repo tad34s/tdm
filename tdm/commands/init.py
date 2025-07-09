@@ -2,7 +2,7 @@ from pathlib import Path
 
 import click
 
-from print_to_user import error
+from tdm.print_to_user import error
 
 sample_config = """
 bootstrap = ""  # no script

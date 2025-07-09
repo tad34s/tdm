@@ -1,13 +1,10 @@
-# TODO: when forking a direcotry add it to forks/profile/path_todir/forked_dirs, check if it is already present
-# check if the the file is already present
-
 import shutil
 from pathlib import Path
 
 import click
 
-from print_to_user import error
-from state import State
+from tdm.print_to_user import error
+from tdm.state import State
 
 # TODO: Check that a fork is not inside a forked directory.
 
@@ -15,12 +12,19 @@ from state import State
 
 
 @click.command
-@click.argument("resource")
-@click.option("--profile", "-p", help="Fetch the new contents from the profile selected.")
+@click.argument("path")
 @click.option(
-    "--symlink", "-s", is_flag=True, help="Symlink instead of copying from profile selected."
+    "--profile", "-p", default=None, help="Fetch the new contents from the profile selected."
 )
-def fork(path: str, profile: str | None, to_symlink: bool):
+@click.option(
+    "--symlink",
+    "-s",
+    is_flag=True,
+    default=False,
+    help="Symlink instead of copying from profile selected.",
+)
+def fork(path: str, profile: str | None, symlink: bool = False):
+    """Create a specific version of the resource selected for the current profile."""
     resource = Path(path).resolve()
     if not resource.exists():
         error("Resource does not exist.")
@@ -30,7 +34,7 @@ def fork(path: str, profile: str | None, to_symlink: bool):
         error("No tdm repo deployed.")
         return
 
-    # command run inside the repo
+    # command ran inside the repo
     if state.repo in resource.parents:
         dotfile_path = resource
     else:
@@ -45,7 +49,7 @@ def fork(path: str, profile: str | None, to_symlink: bool):
 
     # Prepare the forks dir
     # populate the forks/profile/../file correctly
-    if to_symlink:  # populate with symlink
+    if symlink:  # populate with symlink
         if profile is None:
             error("Profile not specified.")
             return
@@ -62,22 +66,24 @@ def fork(path: str, profile: str | None, to_symlink: bool):
             ).is_dir(),
         )
     else:
+        # pdb.set_trace()
         if profile is None:  # use the current profile as source
-            shutil.copytree(dotfile_path, state.fork_dir / relative_path)
+            file_in_fork_dir = state.fork_dir / relative_path
         else:
-            shutil.copytree(
-                state.repo / state.FORK_DIR_NAME / profile / relative_path,
-                state.fork_dir / relative_path,
-            )
+            file_in_fork_dir = state.repo / state.FORK_DIR_NAME / profile / relative_path
+
+        file_in_fork_dir.parent.mkdir(exist_ok=True, parents=True)
+        if dotfile_path.is_dir():
+            shutil.copytree(dotfile_path, file_in_fork_dir)
+        else:
+            shutil.copy(dotfile_path, file_in_fork_dir)
 
     # mark that the whole dir is forked
     if dotfile_path.is_dir() and not_yet_forked:
-        forked_dirs_file = state.fork_dir / state.FORKED_DIRS_FILE
-        with forked_dirs_file.open("a") as f:
-            f.write(str(relative_path))
+        state.add_forked_dir(str(relative_path))
 
     # Apply the fork to file dir
-    state.symlink_item(
+    state.symlink_and_backup_item(
         state.fork_dir / relative_path,
         state.fork_dir,
         state.file_dir,

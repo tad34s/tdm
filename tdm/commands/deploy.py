@@ -3,8 +3,8 @@ from pathlib import Path
 import click
 from git import Repo
 
-from print_to_user import error
-from state import State
+from tdm.print_to_user import error
+from tdm.state import State
 
 
 def is_git_url(arg: str) -> bool:
@@ -17,7 +17,7 @@ def is_tdm_repo(repo_dir: Path) -> bool:
 
 
 @click.command()
-@click.argument("path or repo")
+@click.argument("path")
 @click.option("--profile", "-p", default="base", help="Profile to activate")
 @click.option("--name", "-n", default=None, help="Name of the cloned directory")
 @click.option("--bootstrap", "-b", is_flag=True, help="Run bootstrap script")
@@ -40,11 +40,8 @@ def deploy(path: str, profile: str, name: str | None, bootstrap: bool) -> None:
     # remove symlinks from current state
     curr_state = State.current()
 
-    if not curr_state:
-        error("No tdm repo deployed.")
-        return
-
-    curr_state.desymlink()
+    if curr_state:
+        curr_state.desymlink()
 
     # symlink new state
     state = State(dotfiles_repo, profile)
