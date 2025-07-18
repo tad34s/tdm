@@ -73,6 +73,18 @@ class State:
 
         return cls(Path(repo_dir), profile)
 
+    def get_relative_path(self, resource: Path) -> Path:
+        if self.repo in resource.parents:
+            dotfile_path = resource
+        else:
+            relative_path = resource.relative_to(Path.home())
+            dotfile_path = self.file_dir / relative_path
+            if not dotfile_path.exists():
+                error("Not managing selected resource.")
+
+        relative_path = dotfile_path.relative_to(self.file_dir)
+        return relative_path
+
     def save(self) -> None:
         app_dir = self.get_app_data_dir(create=True)
         state_file = app_dir / self.STATE_FILE_NAME

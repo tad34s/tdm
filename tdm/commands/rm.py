@@ -8,7 +8,7 @@ from tdm.state import State
 
 
 @click.command
-@click.argument("resource")
+@click.argument("path")
 @click.option("--keep", "-k", is_flag=True, help="Keep dotfile")
 def rm(path: str, keep: bool):
     """Remove a file or a directory from tdm."""
@@ -21,39 +21,29 @@ def rm(path: str, keep: bool):
         error("No tdm repo deployed.")
         return
 
-    if state.repo in resource.parents:
-        dotfile_path = resource
-    else:
-        relative_path = resource.relative_to(Path.home())
-        dotfile_path = state.file_dir / relative_path
-        if not dotfile_path.exists():
-            error("Not managing selected resource.")
-            return
-
-    relative_path = dotfile_path.relative_to(state.file_dir)
+    relative_path = state.get_relative_path(resource)
+    dotfile_path = state.file_dir / relative_path
+    home_path = Path.home() / relative_path
 
     if not dotfile_path.exists():
         error("Selected resource not managed.")
         return
 
-    # update symlink dir
-    if resource.is_dir():
-        state.remove_symlinked_dir(str(relative_path))
-
     backup = state.get_app_data_dir(create=True) / state.BACKUP_DIR / relative_path
 
     # desymlink
+    home_path.unlink()
     if not keep:
-        (backup.resolve()).replace(Path.home() / relative_path)
+        backup.resolve().replace(home_path)
     else:
-        (dotfile_path.resolve()).replace(Path.home() / relative_path)
+        dotfile_path.resolve().replace(home_path)
 
     # delete backup
     backup = state.get_app_data_dir(create=True) / state.BACKUP_DIR / relative_path
     if backup.exists():
         backup.unlink()
 
-    if relative_path.is_dir():
+    if dotfile_path.is_dir():
         state.remove_symlinked_dir(str(relative_path))
 
         # delete forks

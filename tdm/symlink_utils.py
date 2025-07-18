@@ -1,6 +1,8 @@
 import shutil
 from pathlib import Path
 
+from tdm.fs_utils import clean_parents
+
 
 def symlink_item(item: Path, original_base: Path, new_base: Path) -> None:
     relative_path = item.relative_to(original_base)
@@ -21,10 +23,7 @@ def symlink_and_backup_item(
     target_path = new_base / relative_path
     if target_path.exists():
         if target_path.is_symlink():
-            if target_path.is_dir():
-                shutil.rmtree(target_path)
-            else:
-                target_path.unlink()
+            target_path.unlink()
         else:
             backup_dest = backup_location / relative_path
             backup_dest.parent.mkdir(exist_ok=True, parents=True)
@@ -35,12 +34,12 @@ def symlink_and_backup_item(
 
 def desymlink_and_recover_item(item: Path, base_path: Path, backup_location: Path) -> None:
     relative_path = item.relative_to(base_path)
-    target_path = backup_location / relative_path
-    if target_path.exists():
-        item.unlink()
-        target_path.replace(item)
-    else:
-        item.unlink()
+    backup_path = backup_location / relative_path
+    item.unlink()
+    if backup_path.exists():
+        backup_path.replace(item)
+
+    clean_parents(backup_path)
 
 
 def desymlink_dir(

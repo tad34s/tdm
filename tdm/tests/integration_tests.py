@@ -17,16 +17,6 @@ FILES: list[tuple[Path, str]] = [
 ]
 
 
-def assert_result(result: Result, command_name: str):
-    print(f"Output:\n{result.output}")
-    print(f"StdOut:\n{result.stdout}")
-    print(f"StdErr:\n{result.stderr}")
-    print(f"Exception:{result.exception}")
-    tracebakc_ig: TracebackType = result.exc_info[2]
-    print(traceback.print_tb(tracebakc_ig))
-    assert result.exit_code == 0, f"{command_name} failed\n"
-
-
 def file_tree(path: Path, prefix: str = "", old_indent="", indent="   ") -> str:
     """Generate a string representation of the directory tree"""
     output = []
@@ -56,6 +46,18 @@ def file_tree(path: Path, prefix: str = "", old_indent="", indent="   ") -> str:
             output.append(child_output)
 
     return "\n".join(output)
+
+
+def assert_result(result: Result, command_name: str, home: Path | None = None):
+    print(f"Output:\n{result.output}")
+    print(f"StdOut:\n{result.stdout}")
+    print(f"StdErr:\n{result.stderr}")
+    print(f"Exception:{result.exception}")
+    tracebakc_ig: TracebackType = result.exc_info[2]
+    print(traceback.print_tb(tracebakc_ig))
+    if home:
+        print("Tree after command: \n", file_tree(home))
+    assert result.exit_code == 0, f"{command_name} failed\n"
 
 
 def check_files(files: list[tuple[Path, str]], home: Path):
@@ -92,7 +94,7 @@ def tdm_prepped_repo(tmp_home: Path, runner: CliRunner) -> Path:
     """Initialize a new TDM repository"""
     repo = tmp_home / "dotfiles"
     result = runner.invoke(cli, ["init", str(repo)])
-    assert_result(result, "Init")
+    assert_result(result, "Init", tmp_home)
 
     # Create sample dotfiles in the repository
     files_dir = repo / "files"
@@ -171,7 +173,7 @@ def used_repo(tmp_home: Path, runner: CliRunner):
 
     for file_to_add in to_add:
         result = runner.invoke(cli, ["add", str(file_to_add)])
-        assert_result(result, "add")
+        assert result.exit_code == 0, "add failed\n"
 
     print("\nAfter tdm use:")
     print(file_tree(tmp_home))
@@ -183,6 +185,29 @@ def used_repo(tmp_home: Path, runner: CliRunner):
     check_files(FILES, tmp_home)
 
     return repo
+
+
+def test_add_parent(tmp_home, used_repo, runner: CliRunner):
+    (tmp_home / ".config" / "nvim" / ".lazy-lock.json").unlink()
+    result = runner.invoke(cli, ["add", ".config"])
+    assert_result(result, "add", tmp_home)
+
+    files = FILES[0:3] + FILES[4:]
+    check_files(files, tmp_home)
+
+
+def test_add_and_remove_parent(tmp_home, used_repo, runner: CliRunner):
+    (tmp_home / ".config" / "nvim" / ".lazy-lock.json").unlink()
+    result = runner.invoke(cli, ["add", ".config"])
+    assert_result(result, "add", tmp_home)
+
+    files = FILES[0:3] + FILES[4:]
+
+    print("symlinked dirs", (tmp_home / "dotfiles" / ".tdm" / "symlinked_dirs").read_text())
+
+    result = runner.invoke(cli, ["rm", ".config"])
+    assert_result(result, "rm", tmp_home)
+    check_files(files, tmp_home)
 
 
 def test_use(used_repo, runner: CliRunner):
@@ -223,7 +248,7 @@ def test_fork_dir(tmp_home: Path, used_repo: Path, runner: CliRunner):
 
     print("file_tree", file_tree(tmp_home))
     result = runner.invoke(cli, ["use", "base"])
-    assert_result(result, "Use")
+    assert_result(result, "Use", tmp_home)
 
     assert (
         tmp_home / ".config/nvim/lua/user/remaps.lua"
@@ -241,7 +266,7 @@ def test_vacate(tmp_home: Path, used_repo: Path, runner: CliRunner):
 
     (tmp_home / ".config/nvim/lua/user/remaps.lua").resolve().write_text("echo Different remaps")
     result = runner.invoke(cli, ["vacate"])
-    assert_result(result, "vacate")
+    assert_result(result, "vacate", tmp_home)
     print(file_tree(tmp_home))
     check_files(FILES, tmp_home)
 

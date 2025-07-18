@@ -39,17 +39,24 @@ def add(path: str):
     dotfile_path = state.file_dir / relative_path
 
     if dotfile_path.exists():
-        if resource.is_file():
+        if (  # checking if it was added already
+            resource.is_file()
+            or any(  # meaning its parent or the resource itself was already added
+                str(relative_path).startswith(x) for x in state.symlinked_dirs
+            )
+        ):
             error(
                 "Already managing selected resource. Use the fork command to create a different version."
             )
             return
 
+        # either adding a new dir, the children could be already added tho
         if resource.is_dir():
             desymlink_dir(
                 dotfile_path,
                 state.file_dir,
                 Path.home(),
+                state.get_app_data_dir() / state.BACKUP_DIR,
             )
 
     if resource.is_dir():
