@@ -1,23 +1,25 @@
+import shutil
 from pathlib import Path
 
 import click
 
-from tdm import file_tree
+from tdm.file_tree import create_tree, symlink_and_backup_tree
 from tdm.print_to_user import error
 from tdm.state import State
+from tdm.symlink_utils import desymlink_dir, symlink_and_backup_item
 
 
-def selectively_move(real_dir: Path, state: State) -> None:
+def selectively_copy(real_dir: Path, state: State) -> None:
     for item in real_dir.iterdir():
         if any(x in str(item) for x in state.config.ignore):
             continue
         if item.is_dir():
-            selectively_move(item, state)
+            selectively_copy(item, state)
         else:
             relative_path = item.relative_to(Path.home())
-            dest_replace = state.file_dir / relative_path
-            dest_replace.parent.mkdir(exist_ok=True, parents=True)
-            item.replace(dest_replace)
+            dest_dotfiles = state.file_dir / relative_path
+            dest_dotfiles.parent.mkdir(exist_ok=True, parents=True)
+            shutil.copy(item, dest_dotfiles)
 
 
 @click.command
@@ -37,26 +39,34 @@ def add(path: str):
     dotfile_path = state.file_dir / relative_path
 
     if dotfile_path.exists():
-        error(
-            "Already managing selected resource. Use the fork command to create a different version."
-        )
-        return
+        if resource.is_file():
+            error(
+                "Already managing selected resource. Use the fork command to create a different version."
+            )
+            return
+
+        if resource.is_dir():
+            desymlink_dir(
+                dotfile_path,
+                state.file_dir,
+                Path.home(),
+            )
 
     if resource.is_dir():
         state.add_symlinked_dir(str(relative_path))
-        selectively_move(resource, state)
-        file_subtree = file_tree.create_tree(
+        selectively_copy(resource, state)
+        file_subtree = create_tree(
             state,
             state.file_dir / relative_path,
-            state.symlink_dirs,
+            state.symlinked_dirs,
         )
-        file_tree.symlink(file_subtree, state)
+        symlink_and_backup_tree(file_subtree, state)
 
     else:
         dotfile_path.parent.mkdir(exist_ok=True, parents=True)
-        resource = resource.rename(dotfile_path)
-        state.symlink_and_backup_item(
-            resource,
+        shutil.copy(resource, dotfile_path)
+        symlink_and_backup_item(
+            dotfile_path,
             state.file_dir,
             Path.home(),
             state.get_app_data_dir(create=True) / state.BACKUP_DIR,

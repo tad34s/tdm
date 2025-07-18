@@ -18,7 +18,9 @@ FILES: list[tuple[Path, str]] = [
 
 
 def assert_result(result: Result, command_name: str):
-    print(f"StdOut:\n{result.stdout}\nStdErr:{result.stderr}")
+    print(f"Output:\n{result.output}")
+    print(f"StdOut:\n{result.stdout}")
+    print(f"StdErr:\n{result.stderr}")
     print(f"Exception:{result.exception}")
     tracebakc_ig: TracebackType = result.exc_info[2]
     print(traceback.print_tb(tracebakc_ig))
@@ -169,7 +171,7 @@ def used_repo(tmp_home: Path, runner: CliRunner):
 
     for file_to_add in to_add:
         result = runner.invoke(cli, ["add", str(file_to_add)])
-        assert result.exit_code == 0, f"Add failed: {result.output}"
+        assert_result(result, "add")
 
     print("\nAfter tdm use:")
     print(file_tree(tmp_home))
@@ -185,7 +187,7 @@ def used_repo(tmp_home: Path, runner: CliRunner):
 
 def test_use(used_repo, runner: CliRunner):
     result = runner.invoke(cli, ["use", "linux-dev"])
-    assert result.exit_code == 0, f"Use failed: {result.output}"
+    assert_result(result, "use")
 
 
 def test_fork_file(tmp_home: Path, used_repo: Path, runner: CliRunner):
@@ -219,7 +221,7 @@ def test_fork_dir(tmp_home: Path, used_repo: Path, runner: CliRunner):
     (tmp_home / ".config/nvim/lua/user/remaps.lua").write_text("echo Different remaps")
     assert (tmp_home / ".config/nvim/lua/user/remaps.lua").read_text() == "echo Different remaps"
 
-    print(file_tree(tmp_home))
+    print("file_tree", file_tree(tmp_home))
     result = runner.invoke(cli, ["use", "base"])
     assert_result(result, "Use")
 
@@ -233,180 +235,27 @@ def test_fork_dir(tmp_home: Path, used_repo: Path, runner: CliRunner):
     assert (tmp_home / ".config/nvim/lua/user/remaps.lua").read_text() == "echo Different remaps"
 
 
-#
-#
-# def test_add_file(deployed_repo: Path, runner: CliRunner, tmp_home: Path) -> None:
-#     """Test adding a file to management"""
-#     # Create test file
-#     test_file = tmp_home / ".testrc"
-#     test_file.write_text("config")
-#
-#     result = runner.invoke(cli, ["add", str(test_file)])
-#     assert result.exit_code == 0
-#
-#     # Verify file was added
-#     repo_file = deployed_repo / "files" / ".testrc"
-#     assert repo_file.is_file()
-#     assert repo_file.read_text() == "config"
-#
-#     # Verify symlink created
-#     assert (tmp_home / ".testrc").is_symlink()
-#     assert os.readlink(tmp_home / ".testrc") == str(repo_file)
-#
-#
-# def test_add_directory(deployed_repo: Path, runner: CliRunner, tmp_home: Path) -> None:
-#     """Test adding a directory to management"""
-#     # Create test directory
-#     test_dir = tmp_home / ".config" / "app"
-#     test_dir.mkdir(parents=True)
-#     (test_dir / "config.toml").write_text("settings")
-#
-#     result = runner.invoke(cli, ["add", str(test_dir)])
-#     assert result.exit_code == 0
-#
-#     # Verify directory was added
-#     repo_dir = deployed_repo / "files" / ".config" / "app"
-#     assert repo_dir.is_dir()
-#     assert (repo_dir / "config.toml").is_file()
-#
-#     # Verify symlink created
-#     assert (tmp_home / ".config" / "app").is_symlink()
-#     assert os.readlink(tmp_home / ".config" / "app") == str(repo_dir)
-#
-#
-# def test_fork_file(deployed_repo: Path, runner: CliRunner, tmp_home: Path) -> None:
-#     """Test forking a managed file"""
-#     # Setup: Add a file to manage
-#     test_file = tmp_home / ".forkrc"
-#     test_file.write_text("original")
-#     runner.invoke(cli, ["add", str(test_file)])
-#
-#     # Fork the file
-#     result = runner.invoke(cli, ["fork", str(test_file), "--profile=dev"])
-#     assert result.exit_code == 0
-#
-#     # Verify fork exists
-#     fork_file = deployed_repo / "forks" / "dev" / ".forkrc"
-#     assert fork_file.exists()
-#
-#     # Modify the fork
-#     fork_file.write_text("modified")
-#
-#     # Verify symlink points to fork
-#     assert (tmp_home / ".forkrc").is_symlink()
-#     assert os.readlink(tmp_home / ".forkrc") == str(fork_file)
-#     assert (tmp_home / ".forkrc").read_text() == "modified"
-#
-#
-# def test_switch_profile(deployed_repo: Path, runner: CliRunner, tmp_home: Path) -> None:
-#     """Test switching between profiles"""
-#     # Create fork in dev profile
-#     test_file = tmp_home / ".switcher"
-#     test_file.write_text("base")
-#     runner.invoke(cli, ["add", str(test_file)])
-#     runner.invoke(cli, ["fork", str(test_file), "--profile=dev"])
-#
-#     # Switch to dev profile
-#     result = runner.invoke(cli, ["use", "dev"])
-#     assert result.exit_code == 0
-#
-#     # Verify state updated
-#     state_file = Path(click.get_app_dir("tdm")) / "state"
-#     with state_file.open() as f:
-#         content = f.read()
-#         assert "dev" in content
-#
-#     # Verify fork is active
-#     fork_file = deployed_repo / "forks" / "dev" / ".switcher"
-#     assert (tmp_home / ".switcher").resolve() == fork_file
-#
-#
-# def test_rejoin_file(deployed_repo: Path, runner: CliRunner, tmp_home: Path) -> None:
-#     """Test rejoining a forked file to base"""
-#     # Setup forked file
-#     test_file = tmp_home / ".rejoinrc"
-#     test_file.write_text("original")
-#     runner.invoke(cli, ["add", str(test_file)])
-#     runner.invoke(cli, ["fork", str(test_file), "--profile=dev"])
-#
-#     # Verify fork exists
-#     fork_file = deployed_repo / "forks" / "dev" / ".rejoinrc"
-#     assert fork_file.exists()
-#
-#     # Rejoin to base
-#     result = runner.invoke(cli, ["rejoin", str(test_file)])
-#     assert result.exit_code == 0
-#
-#     # Verify fork removed
-#     assert not fork_file.exists()
-#
-#     # Verify symlink points to original
-#     base_file = deployed_repo / "files" / ".rejoinrc"
-#     assert (tmp_home / ".rejoinrc").resolve() == base_file
-#
-#
-# def test_remove_file(deployed_repo: Path, runner: CliRunner, tmp_home: Path) -> None:
-#     """Test removing a managed file"""
-#     # Setup managed file
-#     test_file = tmp_home / ".toremove"
-#     test_file.write_text("data")
-#     runner.invoke(cli, ["add", str(test_file)])
-#
-#     # Verify file is managed
-#     assert (deployed_repo / "files" / ".toremove").exists()
-#
-#     # Remove file
-#     result = runner.invoke(cli, ["rm", str(test_file)])
-#     assert result.exit_code == 0
-#
-#     # Verify removal
-#     assert not (deployed_repo / "files" / ".toremove").exists()
-#     assert not (tmp_home / ".toremove").is_symlink()
-#     assert (tmp_home / ".toremove").is_file()  # Original restored
-#
-#
-# def test_vacate_command(deployed_repo: Path, runner: CliRunner, tmp_home: Path) -> None:
-#     """Test vacating the entire deployment"""
-#     # Setup managed file
-#     test_file = tmp_home / ".vacate_test"
-#     test_file.write_text("data")
-#     runner.invoke(cli, ["add", str(test_file)])
-#
-#     # Verify symlink exists
-#     assert (tmp_home / ".vacate_test").is_symlink()
-#
-#     # Vacate deployment
-#     result = runner.invoke(cli, ["vacate"])
-#     assert result.exit_code == 0
-#
-#     # Verify symlinks removed
-#     assert not (tmp_home / ".vacate_test").is_symlink()
-#     assert (tmp_home / ".vacate_test").is_file()
-#
-#     # Verify state cleared
-#     state_file = Path(click.get_app_dir("tdm")) / "state"
-#     assert not state_file.exists()
-#
-#
-# def test_fork_directory(deployed_repo: Path, runner: CliRunner, tmp_home: Path) -> None:
-#     """Test forking an entire directory"""
-#     # Setup directory
-#     test_dir = tmp_home / ".appconfig"
-#     test_dir.mkdir()
-#     (test_dir / "config.toml").write_text("settings")
-#     runner.invoke(cli, ["add", str(test_dir)])
-#
-#     # Fork directory
-#     result = runner.invoke(cli, ["fork", str(test_dir), "--profile=dev"])
-#     assert result.exit_code == 0
-#
-#     # Verify fork metadata
-#     fork_meta = deployed_repo / "forks" / "dev" / ".forked_dirs"
-#     assert ".appconfig" in fork_meta.read_text()
-#
-#     # Verify directory symlink
-#     assert (tmp_home / ".appconfig").is_symlink()
-#     assert "forks/dev" in os.readlink(tmp_home / ".appconfig")
-#
-#     # Verify contents
-#     assert (deployed_repo / "forks" / "dev" / ".appconfig" / "config.toml").exists()
+def test_vacate(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    result = runner.invoke(cli, ["use", "linux-dev"])
+    assert result.exit_code == 0, f"Use failed: {result.output}"
+
+    (tmp_home / ".config/nvim/lua/user/remaps.lua").resolve().write_text("echo Different remaps")
+    result = runner.invoke(cli, ["vacate"])
+    assert_result(result, "vacate")
+    print(file_tree(tmp_home))
+    check_files(FILES, tmp_home)
+
+
+def test_vacate_keep(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    result = runner.invoke(cli, ["use", "linux-dev"])
+    assert result.exit_code == 0, f"Use failed: {result.output}"
+    (tmp_home / ".config/nvim/lua/user/remaps.lua").resolve().write_text("echo Different remaps")
+    result = runner.invoke(cli, ["vacate", "-k"])
+    files = [
+        (Path(".config/nvim/lua/user/remaps.lua"), "echo Different remaps"),
+        (Path(".config/picom.conf"), "# My picom config"),
+        (Path(".bashrc"), "echo hello from bashrc"),
+        (Path(".config/nvim/.lazy-lock.json"), "{}"),
+        (Path(".gitconfig"), "# git config"),
+    ]
+    check_files(files, tmp_home)

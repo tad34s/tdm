@@ -5,6 +5,7 @@ import click
 
 from tdm.print_to_user import error
 from tdm.state import State
+from tdm.symlink_utils import symlink_and_backup_item
 
 # TODO: Check that a fork is not inside a forked directory.
 
@@ -66,7 +67,6 @@ def fork(path: str, profile: str | None, symlink: bool = False):
             ).is_dir(),
         )
     else:
-        # pdb.set_trace()
         if profile is None:  # use the current profile as source
             file_in_fork_dir = state.fork_dir / relative_path
         else:
@@ -83,7 +83,7 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         state.add_forked_dir(str(relative_path))
 
     # Apply the fork to file dir
-    state.symlink_and_backup_item(
+    symlink_and_backup_item(
         state.fork_dir / relative_path,
         state.fork_dir,
         state.file_dir,

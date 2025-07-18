@@ -2,6 +2,7 @@ from pathlib import Path
 
 import click
 
+from tdm.fs_utils import remove_from_set_file
 from tdm.print_to_user import error
 from tdm.state import State
 
@@ -62,7 +63,7 @@ def rm(path: str, keep: bool):
                 continue
 
             forked_dirs_file = fork_dir / state.FORKED_DIRS_FILE
-            state.remove_from_set_file(forked_dirs_file, str(relative_path))
+            remove_from_set_file(forked_dirs_file, str(relative_path))
             forked_item.unlink()
 
     else:

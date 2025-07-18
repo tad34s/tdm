@@ -3,7 +3,9 @@ import subprocess
 from pathlib import Path
 
 from tdm.config import Config
+from tdm.fs_utils import add_to_set_file, read_set_file, remove_from_set_file
 from tdm.print_to_user import error
+from tdm.symlink_utils import desymlink_and_recover_item, desymlink_dir, symlink_and_backup_item
 
 APP_NAME = "tdm"
 
@@ -13,7 +15,7 @@ class State:
     FILE_DIR_NAME = "files"
     BASE_BACKUP_DIR = "base_backup"
     BACKUP_DIR = "original_files"
-    SYMLINKED_DIRS = "symlink_dirs"
+    SYMLINKED_DIRS = "symlinked_dirs"
     REPO_DATA_DIR = ".tdm"
     STATE_FILE_NAME = "state"
     BINARY_DIR = "bin"
@@ -35,64 +37,28 @@ class State:
     @property
     def forked_dirs(self) -> set[str]:
         forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
-        if not forked_dirs_file.exists():
-            return set()
-        with forked_dirs_file.open("r") as f:
-            forked_dirs = set(f.readlines())
-        return forked_dirs
+        return read_set_file(forked_dirs_file)
 
     @property
-    def symlink_dirs(self) -> set[str]:
-        symlink_dirs_file = self.repo / self.REPO_DATA_DIR / self.SYMLINKED_DIRS
-        if not symlink_dirs_file.exists():
-            return set()
-        with symlink_dirs_file.open("r") as f:
-            symlink_dirs = set(f.readlines())
-        return symlink_dirs
-
-    @staticmethod
-    def add_to_set_file(file: Path, entry: str) -> bool:
-        entries = []
-        if file.exists():
-            with file.open("r") as f:
-                entries = set(f.readlines())
-        if entry in entries:
-            return False
-        with file.open("a") as f:
-            f.write(entry)
-        return True
-
-    @staticmethod
-    def remove_from_set_file(file: Path, entry: str) -> bool:
-        if not file.exists():
-            return False
-        with file.open("r") as f:
-            entries = set(f.readlines())
-        if entry not in entries:
-            return False
-        entries.remove(entry)
-        if not entries:
-            file.unlink()
-        else:
-            with file.open("w") as f:
-                f.writelines(entries)
-        return True
+    def symlinked_dirs(self) -> set[str]:
+        symlinked_dirs_file = self.repo / self.REPO_DATA_DIR / self.SYMLINKED_DIRS
+        return read_set_file(symlinked_dirs_file)
 
     def add_forked_dir(self, forked_dir: str) -> None:
         forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
-        assert self.add_to_set_file(forked_dirs_file, forked_dir)
+        assert add_to_set_file(forked_dirs_file, forked_dir)
 
     def remove_forked_dir(self, forked_dir: str) -> None:
         forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
-        assert self.remove_from_set_file(forked_dirs_file, forked_dir)
+        assert remove_from_set_file(forked_dirs_file, forked_dir)
 
     def add_symlinked_dir(self, symlinked_dir: str) -> None:
         symlinked_dirs_file = self.get_repo_data_dir(create=True) / self.SYMLINKED_DIRS
-        assert self.add_to_set_file(symlinked_dirs_file, symlinked_dir)
+        assert add_to_set_file(symlinked_dirs_file, symlinked_dir)
 
     def remove_symlinked_dir(self, symlinked_dir: str) -> None:
         symlinked_dirs_file = self.get_repo_data_dir(create=True) / self.SYMLINKED_DIRS
-        assert self.remove_from_set_file(symlinked_dirs_file, symlinked_dir)
+        assert remove_from_set_file(symlinked_dirs_file, symlinked_dir)
 
     @classmethod
     def current(cls) -> "State | None":
@@ -112,6 +78,15 @@ class State:
         state_file = app_dir / self.STATE_FILE_NAME
         with state_file.open("w") as f:
             f.writelines([str(self.repo) + "\n", self.profile + "\n"])
+
+    def clean_app_dir(self) -> None:
+        app_dir = self.get_app_data_dir(create=True)
+        state_file = app_dir / self.STATE_FILE_NAME
+        backup_dir = app_dir / self.BACKUP_DIR
+        if state_file.exists():
+            state_file.unlink()
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)
 
     def get_repo_data_dir(self, create=False) -> Path:
         data_dir = self.repo / self.REPO_DATA_DIR
@@ -142,47 +117,6 @@ class State:
             cwd=str(self.repo / self.BINARY_DIR),
         )
 
-    @staticmethod
-    def symlink_and_backup_item(
-        item: Path, original_base: Path, new_base: Path, backup_location: Path
-    ) -> None:
-        relative_path = item.relative_to(original_base)
-        target_path = new_base / relative_path
-        if target_path.exists():
-            if target_path.is_symlink():
-                if target_path.is_dir():
-                    shutil.rmtree(target_path)
-                else:
-                    target_path.unlink()
-            else:
-                backup_dest = backup_location / relative_path
-                backup_dest.parent.mkdir(exist_ok=True, parents=True)
-                target_path.replace(backup_dest)
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.symlink_to(item, target_is_directory=item.is_dir())
-
-    @staticmethod
-    def symlink_item(item: Path, original_base: Path, new_base: Path) -> None:
-        relative_path = item.relative_to(original_base)
-        target_path = new_base / relative_path
-        if target_path.exists():
-            if target_path.is_dir():
-                shutil.rmtree(target_path)
-            else:
-                target_path.unlink()
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.symlink_to(item, target_is_directory=item.is_dir())
-
-    @staticmethod
-    def desymlink_item(item: Path, base_path: Path, backup_location: Path) -> None:
-        relative_path = item.relative_to(base_path)
-        target_path = backup_location / relative_path
-        if target_path.exists():
-            item.unlink()
-            target_path.replace(item)
-        else:
-            item.unlink()
-
     def __apply_forks(self) -> None:
         """Symlink each fork to source"""
 
@@ -193,7 +127,7 @@ class State:
                 if item.is_file(follow_symlinks=True) or (
                     item.is_dir() and str(item.relative_to(self.fork_dir)) in forked_dirs
                 ):
-                    self.symlink_and_backup_item(
+                    symlink_and_backup_item(
                         item,
                         self.fork_dir,
                         self.file_dir,
@@ -214,7 +148,7 @@ class State:
         def recursively_desymlink_forks(src_dir: Path) -> None:
             for item in src_dir.iterdir():
                 if item.is_symlink():
-                    self.desymlink_item(
+                    desymlink_and_recover_item(
                         item,
                         self.file_dir,
                         self.get_repo_data_dir(create=True) / self.BASE_BACKUP_DIR,
@@ -226,36 +160,22 @@ class State:
 
     def symlink(self) -> None:
         """Symlink necessary dotfiles"""
-        from tdm.file_tree import create_tree, symlink_and_backup
+        from tdm.file_tree import create_tree, symlink_and_backup_tree
 
         self.__apply_forks()
-        symlink_dirs = self.symlink_dirs
+        symlinked_dirs = self.symlinked_dirs
         root_file_node = create_tree(
             self,
             self.file_dir,
-            symlink_dirs,
+            symlinked_dirs,
         )
-        symlink_and_backup(root_file_node, self)
+        symlink_and_backup_tree(root_file_node, self)
 
     def desymlink(self) -> None:
         """Desymlink all links made by the current state"""
 
-        def recursively_desymlink(
-            curr_dir: Path, symlink_location_base: Path, backup_location: Path
-        ) -> None:
-            for item in curr_dir.iterdir():
-                relative_path = item.relative_to(self.file_dir)
-                if (symlink_location_base / relative_path).is_symlink():
-                    self.desymlink_item(
-                        symlink_location_base / relative_path,
-                        symlink_location_base,
-                        backup_location,
-                    )
-                elif item.is_dir():
-                    recursively_desymlink(item, symlink_location_base, backup_location)
-
-        # unapply symlinks to home
-        recursively_desymlink(
+        desymlink_dir(
+            self.file_dir,
             self.file_dir,
             Path.home().expanduser(),
             self.get_app_data_dir(create=True) / self.BACKUP_DIR,

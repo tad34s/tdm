@@ -4,6 +4,7 @@ import click
 
 from tdm.print_to_user import error
 from tdm.state import State
+from tdm.symlink_utils import desymlink_and_recover_item
 
 
 @click.command
@@ -43,7 +44,7 @@ def rejoin(path: str, keep: bool):
         fork_file.replace(state.get_repo_data_dir() / state.BASE_BACKUP_DIR / relative_path)
 
     # stop fork
-    state.desymlink_item(
+    desymlink_and_recover_item(
         dotfile_path, state.file_dir, state.get_repo_data_dir() / state.BASE_BACKUP_DIR
     )
 
