@@ -12,6 +12,16 @@ from tdm.symlink_utils import symlink_and_backup_item
 # TODO: Maybe some other already forked stuff?
 
 
+def was_forked(state: State, relative_path: Path) -> bool:
+    # meaning its parent or the resource itself was already added
+    if relative_path.is_file() and (state.fork_dir / relative_path).exists():
+        return True
+    if any(str(relative_path).startswith(x) for x in state.forked_dirs):
+        return True
+
+    return False
+
+
 @click.command
 @click.argument("path")
 @click.option(
@@ -35,18 +45,9 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         error("No tdm repo deployed.")
         return
 
-    # command ran inside the repo
-    if state.repo in resource.parents:
-        dotfile_path = resource
-    else:
-        relative_path = resource.relative_to(Path.home())
-        dotfile_path = state.file_dir / relative_path
-        if not dotfile_path.exists():
-            error("Not managing selected resource.")
-            return
-
-    relative_path = dotfile_path.relative_to(state.file_dir)
-    not_yet_forked = (state.fork_dir / relative_path).exists()
+    relative_path = state.get_relative_path(resource)
+    dotfile_path = state.file_dir / relative_path
+    not_yet_forked = not was_forked(state, relative_path)
 
     # Prepare the forks dir
     # populate the forks/profile/../file correctly

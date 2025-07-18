@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 import click
@@ -8,12 +9,11 @@ from tdm.symlink_utils import desymlink_and_recover_item
 
 
 @click.command
-@click.argument("resource")
+@click.argument("path")
 @click.option("--keep", "-k", is_flag=True, help="Replace base version with forked version.")
 def rejoin(path: str, keep: bool):
     """Deletes the fork and replaces it witht the base configuration.
-    If keep is on, it will replace the base with the forked instead. But will still delete the fact
-    that the file is forked for this profile.
+    If keep is on, it will replace the base with the forked instead. But will still delete the fact that the file is forked for this profile.
     """
     resource = Path(path).resolve()
     if not resource.exists():
@@ -24,17 +24,17 @@ def rejoin(path: str, keep: bool):
         error("No tdm repo deployed.")
         return
 
-    # command ran inside the repo
-    if state.repo in resource.parents:
-        dotfile_path = resource
+    if state.file_dir in resource.parents:
+        relative_path = resource.relative_to(state.file_dir)
+    elif state.fork_dir in resource.parents:
+        relative_path = resource.relative_to(state.fork_dir)
     else:
         relative_path = resource.relative_to(Path.home())
-        dotfile_path = state.file_dir / relative_path
-        if not dotfile_path.exists():
-            error("Not managing selected resource.")
-            return
 
-    relative_path = dotfile_path.relative_to(state.file_dir)
+    dotfile_path = state.file_dir / relative_path
+    if not dotfile_path.exists():
+        error("Not managing selected resource.")
+
     fork_file = state.fork_dir / relative_path
 
     if not fork_file.exists():
@@ -50,4 +50,7 @@ def rejoin(path: str, keep: bool):
 
     # delete fork
     if fork_file.exists():
-        fork_file.unlink()
+        if fork_file.is_dir():
+            shutil.rmtree(fork_file)
+        else:
+            fork_file.unlink()
