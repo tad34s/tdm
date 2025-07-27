@@ -15,11 +15,11 @@ class TreeNode:
 def create_tree(
     state: State,
     curr_src_dir: Path,
-    symlinked_dirs: set[str],
-    in_symlink_dir: bool = False,
+    added_dirs: set[str],
+    dir_added: bool = False,
 ) -> TreeNode:
     relative_path = curr_src_dir.relative_to(state.file_dir)
-    should_symlink_all = in_symlink_dir or str(relative_path) in symlinked_dirs
+    should_symlink_all = dir_added or str(relative_path) in added_dirs
     could_symlink_all = should_symlink_all
 
     children: list[TreeNode] = []
@@ -34,7 +34,7 @@ def create_tree(
             children.append(TreeNode(item, True, []))
 
         elif item.is_dir(follow_symlinks=True):
-            new_child = create_tree(state, item, symlinked_dirs, should_symlink_all)
+            new_child = create_tree(state, item, added_dirs, should_symlink_all)
             if not new_child.symlink:  # check whether we could symlink whole child
                 could_symlink_all = False
             children.append(new_child)

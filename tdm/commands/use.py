@@ -19,4 +19,4 @@ def use(profile_name: str, bootstrap: bool):
     new_state.symlink()
     new_state.save()
     if bootstrap:
-        state.run_bootstrap()
+        new_state.run_bootstrap()

@@ -1,6 +1,6 @@
 import click
 
-from tdm.commands import add, deploy, fork, init, rejoin, rm, use, vacate
+from tdm.commands import add, deploy, fork, init, patch, rejoin, rm, use, vacate
 
 
 @click.group()
@@ -16,3 +16,4 @@ cli.add_command(init)
 cli.add_command(rejoin)
 cli.add_command(use)
 cli.add_command(vacate)
+cli.add_command(patch)

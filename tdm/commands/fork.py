@@ -45,10 +45,20 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         error("No tdm repo deployed.")
         return
 
-    relative_path = state.get_relative_path(resource)
+    if state.fork_dir in resource.parents:
+        relative_path = resource.relative_to(state.fork_dir)
+    if state.file_dir in resource.parents:
+        relative_path = resource.relative_to(state.file_dir)
+    else:
+        relative_path = resource.relative_to(Path.home())
     dotfile_path = state.file_dir / relative_path
     not_yet_forked = not was_forked(state, relative_path)
 
+    if (
+        profile is not None
+        and not (state.repo / state.FORK_DIR_NAME / profile / relative_path).exists()
+    ):
+        error("The profile specified did not fork the selected path.")
     # Prepare the forks dir
     # populate the forks/profile/../file correctly
     if symlink:  # populate with symlink
@@ -61,6 +71,7 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         new_link = state.fork_dir / relative_path
         if new_link.exists():
             new_link.unlink()
+        new_link.parent.mkdir(exist_ok=True, parents=True)
         new_link.symlink_to(
             state.repo / state.FORK_DIR_NAME / profile / relative_path,
             target_is_directory=(

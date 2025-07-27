@@ -43,8 +43,8 @@ class Config:
         for file in profile_config.get("include", []):
             exclude.remove(file)
 
-        use_only = data.get("use-only")
-        bootstrap = data.get("bootstrap", bootstrap)
+        use_only = profile_config.get("use-only")
+        bootstrap = profile_config.get("bootstrap", bootstrap)
         bootstrap = bootstrap if bootstrap else None
 
         return Config(exclude, ignore, use_only, bootstrap)

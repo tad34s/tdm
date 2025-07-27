@@ -20,7 +20,6 @@ FILES: list[tuple[Path, str]] = [
 def file_tree(path: Path, prefix: str = "", old_indent="", indent="   ") -> str:
     """Generate a string representation of the directory tree"""
     output = []
-    is_root = old_indent == ""
     item_name = path.name
     if path.is_symlink():
         item_name = "\033[36m" + item_name + f" -> {path.readlink()}" + "\033[0m"
@@ -121,6 +120,10 @@ def tdm_prepped_repo(tmp_home: Path, runner: CliRunner) -> Path:
     bootstrap.write_text("#!/bin/bash\necho 'Bootstrapping...'")
     bootstrap.chmod(0o755)  # Make executable
 
+    bootstrap_script = repo / "bin" / "linux.sh"
+    bootstrap_script.write_text("#!/bin/bash\ntouch ~/bootstrap_ran_linux")
+    bootstrap_script.chmod(0o755)
+
     return repo
 
 
@@ -182,6 +185,10 @@ def used_repo(tmp_home: Path, runner: CliRunner):
     assert (tmp_home / ".config/picom.conf").is_symlink(), "picomf.conf is not symlink"
     assert not (tmp_home / ".config/nvim").is_symlink(), "nvim is a symlink"
 
+    bootstrap_script = repo / "bin" / "linux.sh"
+    bootstrap_script.write_text("#!/bin/bash\ntouch ~/bootstrap_ran_linux")
+    bootstrap_script.chmod(0o755)
+
     check_files(FILES, tmp_home)
 
     return repo
@@ -203,7 +210,7 @@ def test_add_and_remove_parent(tmp_home, used_repo, runner: CliRunner):
 
     files = FILES[0:3] + FILES[4:]
 
-    print("symlinked dirs", (tmp_home / "dotfiles" / ".tdm" / "symlinked_dirs").read_text())
+    print("symlinked dirs", (tmp_home / "dotfiles" / ".tdm" / "added_dirs").read_text())
 
     result = runner.invoke(cli, ["rm", ".config"])
     assert_result(result, "rm", tmp_home)
@@ -373,3 +380,212 @@ def test_vacate_keep(tmp_home: Path, used_repo: Path, runner: CliRunner):
         (Path(".gitconfig"), "# git config"),
     ]
     check_files(files, tmp_home)
+
+
+def test_add_already_managed_file(tmp_home, used_repo, runner: CliRunner):
+    """Test adding a file that's already managed"""
+    result = runner.invoke(cli, ["add", ".bashrc"])
+    print(result.output)
+    assert result.exit_code != 0, "Should fail adding already managed file"
+    assert "Already managing selected resource" in result.output
+
+
+def test_add_already_managed_directory(tmp_home, used_repo, runner: CliRunner):
+    """Test adding a directory that's already managed"""
+    result = runner.invoke(cli, ["add", ".config/nvim"])
+    assert result.exit_code != 0, "Should fail adding already managed directory"
+    assert "Already managing selected resource" in result.output
+
+
+def test_fork_symlink(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    """Test fork with symlink option"""
+    result = runner.invoke(cli, ["use", "linux-dev"])
+    assert_result(result, "use", tmp_home)
+
+    # First fork normally
+    result = runner.invoke(cli, ["fork", ".bashrc"])
+    assert_result(result, "fork", tmp_home)
+
+    result = runner.invoke(cli, ["use", "mac"])
+    assert_result(result, "use", tmp_home)
+
+    # Now fork with symlink to different profile
+    result = runner.invoke(cli, ["fork", ".bashrc", "--profile=linux-dev", "--symlink"])
+    assert_result(result, "fork with symlink", tmp_home)
+
+    # Verify symlink was created
+    fork_path = used_repo / "forks" / "mac" / ".bashrc"
+    assert fork_path.is_symlink()
+    assert "linux-dev" in str(fork_path.readlink())
+
+
+def test_fork_symlink_err(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    """Test fork with symlink option"""
+    result = runner.invoke(cli, ["use", "linux-dev"])
+    assert_result(result, "use", tmp_home)
+
+    # First fork normally
+    result = runner.invoke(cli, ["fork", ".bashrc"])
+    assert_result(result, "fork", tmp_home)
+
+    # Now fork with symlink to different profile
+    result = runner.invoke(cli, ["fork", ".bashrc", "--profile=mac", "--symlink"])
+    assert result.exit_code != 0
+    assert "The profile specified did not fork the selected path." in result.output
+
+
+# TODO: Change to test fork profile no symlink, verify contents
+def test_fork_no_profile(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    """Test fork without specifying profile (uses current)"""
+    result = runner.invoke(cli, ["use", "linux-dev"])
+    assert_result(result, "use", tmp_home)
+
+    result = runner.invoke(cli, ["fork", ".bashrc"])
+    assert_result(result, "fork", tmp_home)
+
+    # Verify fork exists in current profile
+    fork_path = used_repo / "forks" / "linux-dev" / ".bashrc"
+    assert fork_path.exists()
+
+
+def test_rejoin_keep(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    """Test rejoin with keep option"""
+    # Setup fork
+    result = runner.invoke(cli, ["use", "linux-dev"])
+    assert_result(result, "use", tmp_home)
+
+    result = runner.invoke(cli, ["fork", ".bashrc"])
+    assert_result(result, "fork", tmp_home)
+
+    (tmp_home / ".bashrc").write_text("echo Forked text")
+
+    # Rejoin with keep
+    result = runner.invoke(cli, ["rejoin", ".bashrc", "--keep"])
+    assert_result(result, "rejoin with keep", tmp_home)
+
+    # Verify original file was replaced with forked version
+    original_path = used_repo / "files" / ".bashrc"
+    assert original_path.read_text() == "echo Forked text"
+
+
+def test_deploy_invalid_directory(tmp_home, runner: CliRunner):
+    """Test deploy with non-existent directory"""
+    result = runner.invoke(cli, ["deploy", "/non/existent/path"])
+    assert result.exit_code != 0
+    assert "Directory provided does not exist" in result.output
+
+
+def test_deploy_non_tdm_repo(tmp_home, runner: CliRunner):
+    """Test deploy with directory that's not a TDM repo"""
+    # Create a directory that's not a TDM repo
+    non_repo = tmp_home / "not-a-repo"
+    non_repo.mkdir()
+
+    result = runner.invoke(cli, ["deploy", str(non_repo)])
+    assert result.exit_code != 0
+    assert "Not a valid tdm repo" in result.output
+
+
+def test_command_without_deployment(tmp_home, runner: CliRunner):
+    """Test commands fail when no TDM is deployed"""
+    commands = [
+        ["add", ".bashrc"],
+        ["rm", ".bashrc"],
+        ["fork", ".bashrc"],
+        ["rejoin", ".bashrc"],
+        ["use", "new-profile"],
+        ["vacate"],
+    ]
+
+    for cmd in commands:
+        result = runner.invoke(cli, cmd)
+        assert result.exit_code != 0, f"{cmd} should fail without deployment"
+        assert "No tdm repo deployed" in result.output
+
+
+def test_bootstrap_on_deploy(tmp_home, tdm_prepped_repo, runner: CliRunner):
+    """Test bootstrap script runs on deployment"""
+
+    # Deploy with bootstrap
+    result = runner.invoke(cli, ["deploy", str(tdm_prepped_repo), "--bootstrap", "-p", "linux-dev"])
+    assert_result(result, "deploy with bootstrap", tmp_home)
+
+    assert (tmp_home / "bootstrap_ran_linux").exists()
+
+
+def test_bootstrap_on_use(tmp_home, used_repo, runner: CliRunner):
+    """Test bootstrap script runs when switching profiles"""
+    profile = "linux-dev"
+
+    # Switch profile with bootstrap
+    result = runner.invoke(cli, ["use", profile, "--bootstrap"])
+    assert_result(result, "use with bootstrap", tmp_home)
+
+    # Verify bootstrap ran
+    assert (tmp_home / "bootstrap_ran_linux").exists()
+
+
+def test_fork_non_existent_resource(tmp_home, used_repo, runner: CliRunner):
+    """Test forking a non-existent resource"""
+    result = runner.invoke(cli, ["fork", "/non/existent/file"])
+    assert result.exit_code != 0
+    assert "Resource does not exist" in result.output
+
+
+def test_rejoin_non_forked_resource(tmp_home, used_repo, runner: CliRunner):
+    """Test rejoining a resource that wasn't forked"""
+    result = runner.invoke(cli, ["rejoin", ".bashrc"])
+    assert result.exit_code != 0
+    assert "Resource was not forked" in result.output
+
+
+def test_add_invalid_resource(tmp_home, runner: CliRunner):
+    """Test adding non-existent resource"""
+    result = runner.invoke(cli, ["add", "/non/existent/file"])
+    assert result.exit_code != 0
+    assert "Resource does not exist" in result.output
+
+
+def test_rm_invalid_resource(tmp_home, used_repo, runner: CliRunner):
+    """Test removing non-managed resource"""
+    result = runner.invoke(cli, ["rm", "/non/existent/file"])
+    assert result.exit_code != 0
+    assert "Resource does not exist" in result.output
+
+
+def test_use_invalid_profile(tmp_home, used_repo, runner: CliRunner):
+    """Test switching to non-existent profile"""
+    result = runner.invoke(cli, ["use", "non-existent-profile"])
+    assert result.exit_code != 0
+    assert "No such profile" in result.output or "Profile not found" in result.output
+
+
+def test_patch(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    new_dir = tmp_home / ".config" / "nvim" / "plugins"
+    new_dir.mkdir()
+    (new_dir / "floaterminal.lua").touch()
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch")
+    print(file_tree(tmp_home))
+    assert new_dir.is_symlink()
+
+
+def test_patch_with_ignore(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    new_dir = tmp_home / ".config" / "nvim" / "plugins"
+    new_dir.mkdir()
+    (new_dir / "floaterminal.lua").touch()
+    (new_dir / ".lazy-lock.json").touch()
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch")
+    print(file_tree(tmp_home))
+    assert not (new_dir).is_symlink()
+    assert (new_dir / "floaterminal.lua").is_symlink()
+
+
+def test_patch_relinking(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    dir = tmp_home / ".config/nvim/lua"
+    dir.unlink()
+    assert not dir.exists()
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch")
+    check_files(FILES, tmp_home)

@@ -23,6 +23,8 @@ def symlink_and_backup_item(
     target_path = new_base / relative_path
     if target_path.exists():
         if target_path.is_symlink():
+            if target_path.readlink() == item:
+                return
             target_path.unlink()
         else:
             backup_dest = backup_location / relative_path

@@ -45,6 +45,7 @@ def deploy(path: str, profile: str, name: str | None, bootstrap: bool) -> None:
 
     # symlink new state
     state = State(dotfiles_repo, profile)
+    print(profile)
     state.symlink()
     if bootstrap:
         state.run_bootstrap()

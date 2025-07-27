@@ -44,7 +44,7 @@ def rm(path: str, keep: bool):
         backup.unlink()
 
     if dotfile_path.is_dir():
-        state.remove_symlinked_dir(str(relative_path))
+        state.remove_added_dir(str(relative_path))
 
         # delete forks
         for fork_dir in (state.repo / state.FORK_DIR_NAME).iterdir():

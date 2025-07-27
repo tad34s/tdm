@@ -35,14 +35,17 @@ def add(path: str):
         error("No tdm repo deployed.")
         return
 
-    relative_path = resource.relative_to(Path.home())
+    if state.repo in resource.parents:
+        relative_path = resource.relative_to(state.file_dir)
+    else:
+        relative_path = resource.relative_to(Path.home())
     dotfile_path = state.file_dir / relative_path
 
     if dotfile_path.exists():
         if (  # checking if it was added already
             resource.is_file()
             or any(  # meaning its parent or the resource itself was already added
-                str(relative_path).startswith(x) for x in state.symlinked_dirs
+                str(relative_path).startswith(x) for x in state.added_dirs
             )
         ):
             error(
@@ -60,12 +63,12 @@ def add(path: str):
             )
 
     if resource.is_dir():
-        state.add_symlinked_dir(str(relative_path))
+        state.add_added_dir(str(relative_path))
         selectively_copy(resource, state)
         file_subtree = create_tree(
             state,
             state.file_dir / relative_path,
-            state.symlinked_dirs,
+            state.added_dirs,
         )
         symlink_and_backup_tree(file_subtree, state)
 

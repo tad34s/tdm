@@ -15,7 +15,7 @@ class State:
     FILE_DIR_NAME = "files"
     BASE_BACKUP_DIR = "base_backup"
     BACKUP_DIR = "original_files"
-    SYMLINKED_DIRS = "symlinked_dirs"
+    ADDED_DIRS = "added_dirs"
     REPO_DATA_DIR = ".tdm"
     STATE_FILE_NAME = "state"
     BINARY_DIR = "bin"
@@ -40,9 +40,9 @@ class State:
         return read_set_file(forked_dirs_file)
 
     @property
-    def symlinked_dirs(self) -> set[str]:
-        symlinked_dirs_file = self.repo / self.REPO_DATA_DIR / self.SYMLINKED_DIRS
-        return read_set_file(symlinked_dirs_file)
+    def added_dirs(self) -> set[str]:
+        added_dirs_file = self.repo / self.REPO_DATA_DIR / self.ADDED_DIRS
+        return read_set_file(added_dirs_file)
 
     def add_forked_dir(self, forked_dir: str) -> None:
         forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
@@ -52,13 +52,13 @@ class State:
         forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
         assert remove_from_set_file(forked_dirs_file, forked_dir)
 
-    def add_symlinked_dir(self, symlinked_dir: str) -> None:
-        symlinked_dirs_file = self.get_repo_data_dir(create=True) / self.SYMLINKED_DIRS
-        assert add_to_set_file(symlinked_dirs_file, symlinked_dir)
+    def add_added_dir(self, added_dir: str) -> None:
+        added_dirs_file = self.get_repo_data_dir(create=True) / self.ADDED_DIRS
+        assert add_to_set_file(added_dirs_file, added_dir)
 
-    def remove_symlinked_dir(self, symlinked_dir: str) -> None:
-        symlinked_dirs_file = self.get_repo_data_dir(create=True) / self.SYMLINKED_DIRS
-        assert remove_from_set_file(symlinked_dirs_file, symlinked_dir)
+    def remove_added_dir(self, added_dir: str) -> None:
+        added_dirs_file = self.get_repo_data_dir(create=True) / self.ADDED_DIRS
+        assert remove_from_set_file(added_dirs_file, added_dir)
 
     @classmethod
     def current(cls) -> "State | None":
@@ -117,9 +117,11 @@ class State:
         """Run the provided bootstrap if available"""
 
         if not self.config.bootstrap:
+            print("No bootstrap specified.")
             return
 
         bootstrap_script = self.repo / self.BINARY_DIR / self.config.bootstrap
+        print(bootstrap_script)
 
         if not bootstrap_script.exists():
             error("Bootstrap script specified does not exists.")
@@ -154,7 +156,7 @@ class State:
 
         recursively_symlink_forks(profile_forks, self.forked_dirs)
 
-    def __unapply_forks(self) -> None:
+    def unapply_forks(self) -> None:
         """Desymlink each fork from source."""
 
         def recursively_desymlink_forks(src_dir: Path) -> None:
@@ -175,11 +177,11 @@ class State:
         from tdm.file_tree import create_tree, symlink_and_backup_tree
 
         self.__apply_forks()
-        symlinked_dirs = self.symlinked_dirs
+        added_dirs = self.added_dirs
         root_file_node = create_tree(
             self,
             self.file_dir,
-            symlinked_dirs,
+            added_dirs,
         )
         symlink_and_backup_tree(root_file_node, self)
 
@@ -193,4 +195,4 @@ class State:
             self.get_app_data_dir(create=True) / self.BACKUP_DIR,
         )
 
-        self.__unapply_forks()
+        self.unapply_forks()
