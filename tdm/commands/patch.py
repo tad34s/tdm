@@ -11,12 +11,11 @@ from tdm.print_to_user import error
 from tdm.state import State
 
 
-def patch_tree(relative_path: Path, state: State):
+def add_new_children(relative_path: Path, state: State):
     resource = Path.home() / relative_path
     dotfile = state.file_dir / relative_path
 
-    # copy + symlink
-    # pdb.set_trace()
+    # copy
     if not dotfile.exists():
         dotfile.parent.mkdir(exist_ok=True, parents=True)
         if resource.is_dir():
@@ -31,7 +30,7 @@ def patch_tree(relative_path: Path, state: State):
     for item in resource.iterdir():
         if any(x in str(item) for x in state.config.ignore):
             continue
-        patch_tree(item.relative_to(Path.home()), state)
+        add_new_children(item.relative_to(Path.home()), state)
 
 
 @click.command
@@ -42,7 +41,7 @@ def patch():
         return
 
     for dir in state.added_dirs:
-        patch_tree(Path(dir), state)
+        add_new_children(Path(dir), state)
 
     file_subtree = create_tree(
         state,

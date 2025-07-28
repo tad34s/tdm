@@ -131,7 +131,7 @@ class State:
             cwd=str(self.repo / self.BINARY_DIR),
         )
 
-    def __apply_forks(self) -> None:
+    def apply_forks(self) -> None:
         """Symlink each fork to source"""
 
         def recursively_symlink_forks(directory: Path, forked_dirs: set[str]) -> None:
@@ -176,7 +176,7 @@ class State:
         """Symlink necessary dotfiles"""
         from tdm.file_tree import create_tree, symlink_and_backup_tree
 
-        self.__apply_forks()
+        self.apply_forks()
         added_dirs = self.added_dirs
         root_file_node = create_tree(
             self,
