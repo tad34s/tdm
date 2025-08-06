@@ -3,7 +3,7 @@ import sys
 
 import click
 
-from tdm.print_to_user import error
+from tdm.print_to_user import error, success
 from tdm.state import State
 
 
@@ -28,3 +28,4 @@ def update():
 
     # Propagate git's exit code
     sys.exit(result.returncode)
+    success("dotfiles are up to date.")

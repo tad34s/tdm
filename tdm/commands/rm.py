@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 
 from tdm.fs_utils import remove_from_set_file
-from tdm.print_to_user import error
+from tdm.print_to_user import error, success
 from tdm.state import State
 
 
@@ -63,3 +63,5 @@ def rm(path: str, keep: bool):
             if not forked_item.exists():
                 continue
             forked_item.unlink()
+
+    success(f"removed \033[3m{path}\033[0m.")

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import click
 
-from tdm.print_to_user import error
+from tdm.print_to_user import error, success
 
 sample_config = """
 bootstrap = ""  # no script
@@ -37,7 +37,8 @@ use-only = [  # if specifies will only use files or directories provided here
 
 @click.command()
 @click.argument("name")
-def init(name: str) -> None:
+@click.option("--git", "-g", is_flag=True, help="Prompt to add remote.")
+def init(name: str, git: bool) -> None:
     """Initialize new dotfiles repository"""
 
     dirs = ["files", "forks", "bin"]
@@ -55,3 +56,24 @@ def init(name: str) -> None:
         f.write(sample_config)
 
     _ = subprocess.run(["git", "init"], check=False, cwd=dotfiles_repo, capture_output=True)
+
+    if git:
+        remote = input("Git remote: ")
+
+        print("remote", remote)
+
+        if remote:
+            _ = subprocess.run(
+                ["git", "remote", "add", "origin", remote],
+                check=False,
+                cwd=dotfiles_repo,
+                capture_output=True,
+            )
+            _ = subprocess.run(
+                ["git", "push", "-u", "origin", "master"],
+                check=False,
+                cwd=dotfiles_repo,
+                capture_output=True,
+            )
+
+    success(f"created a tdm repo at \033[3m{name}\033[0m.")

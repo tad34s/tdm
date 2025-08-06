@@ -17,7 +17,7 @@ def success(msg: str) -> None:
 def print_git(msg: str, error=False) -> None:
     indent = "  "
     if error:
-        print("\033[91mErrorgit 󰊢\033[0m: " + msg, file=sys.stderr)  # noqa: T201
+        print("\033[91mError, git 󰊢\033[0m: " + msg, file=sys.stderr)  # noqa: T201
     else:
         print("\033[38;2;240;80;50mgit 󰊢\033[0m:")
         print(indent + msg.replace("\n", f"\n{indent}"))  # noqa: T201

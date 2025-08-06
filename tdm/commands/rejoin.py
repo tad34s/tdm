@@ -3,7 +3,7 @@ from pathlib import Path
 
 import click
 
-from tdm.print_to_user import error
+from tdm.print_to_user import error, success
 from tdm.state import State
 from tdm.symlink_utils import desymlink_and_recover_item
 
@@ -54,3 +54,5 @@ def rejoin(path: str, keep: bool):
             shutil.rmtree(fork_file)
         else:
             fork_file.unlink()
+
+    success(f"rejoined \033[3m{path}\033[0m.")

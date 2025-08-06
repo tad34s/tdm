@@ -7,7 +7,7 @@ import click
 
 from tdm.commands.add import selectively_copy
 from tdm.file_tree import create_tree, symlink_and_backup_tree
-from tdm.print_to_user import error
+from tdm.print_to_user import error, success
 from tdm.state import State
 
 
@@ -49,3 +49,4 @@ def patch():
         state.added_dirs,
     )
     symlink_and_backup_tree(file_subtree, state)
+    success("patched.")

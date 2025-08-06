@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 from git import Repo
 
-from tdm.print_to_user import error
+from tdm.print_to_user import error, success
 from tdm.state import State
 
 
@@ -45,9 +45,11 @@ def deploy(path: str, profile: str, name: str | None, bootstrap: bool) -> None:
 
     # symlink new state
     state = State(dotfiles_repo, profile)
-    print(profile)
     state.symlink()
     if bootstrap:
         state.run_bootstrap()
 
     state.save()
+    success(
+        f"Deployed the repo \033[3m{str(dotfiles_repo)}\033[0m, \033[3mset profile as {profile}\033[0m."
+    )

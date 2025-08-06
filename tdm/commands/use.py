@@ -1,6 +1,6 @@
 import click
 
-from tdm.print_to_user import error
+from tdm.print_to_user import error, success
 from tdm.state import State
 
 
@@ -20,3 +20,5 @@ def use(profile_name: str, bootstrap: bool):
     new_state.save()
     if bootstrap:
         new_state.run_bootstrap()
+
+    success(f"now using the \033[3m{profile_name}\033[0m profile.")

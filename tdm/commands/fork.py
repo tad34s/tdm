@@ -3,7 +3,7 @@ from pathlib import Path
 
 import click
 
-from tdm.print_to_user import error
+from tdm.print_to_user import error, success
 from tdm.state import State
 from tdm.symlink_utils import symlink_and_backup_item
 
@@ -101,3 +101,5 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         state.file_dir,
         state.get_repo_data_dir(create=True) / state.BASE_BACKUP_DIR,
     )
+
+    success(f"forked \033[3m{path}\033[0m.")

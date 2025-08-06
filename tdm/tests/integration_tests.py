@@ -1,3 +1,4 @@
+import io
 import tomllib
 import traceback
 from pathlib import Path
@@ -94,7 +95,8 @@ def tmp_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def tdm_prepped_repo(tmp_home: Path, runner: CliRunner) -> Path:
     """Initialize a new TDM repository"""
     repo = tmp_home / "dotfiles"
-    result = runner.invoke(cli, ["init", str(repo)])
+    input_stream = io.StringIO("\n")  # Simulates pressing Enter
+    result = runner.invoke(cli, ["init", "--git", str(repo)], input="\n")
     assert_result(result, "Init", tmp_home)
 
     # Create sample dotfiles in the repository
@@ -108,7 +110,7 @@ def tdm_prepped_repo(tmp_home: Path, runner: CliRunner) -> Path:
     config_dir = files_dir / ".config" / "myapp"
     config_dir.mkdir(parents=True)
 
-    # Create config file inside directory
+    # Create config file inside director
     (config_dir / "settings.json").write_text('{"theme": "dark"}')
 
     # Create nested directory structure
@@ -164,6 +166,7 @@ def test_deploy_command(deployed_repo: Path, tmp_home: Path) -> None:
 @pytest.fixture()
 def used_repo(tmp_home: Path, runner: CliRunner):
     repo = tmp_home / "dotfiles"
+
     result = runner.invoke(cli, ["init", str(repo)])
     assert result.exit_code == 0, f"Init failed: {result.output}"
 

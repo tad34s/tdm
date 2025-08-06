@@ -4,7 +4,7 @@ from pathlib import Path
 import click
 
 from tdm.file_tree import create_tree, symlink_and_backup_tree
-from tdm.print_to_user import error
+from tdm.print_to_user import error, success
 from tdm.state import State
 from tdm.symlink_utils import desymlink_dir, symlink_and_backup_item
 
@@ -81,3 +81,5 @@ def add(path: str):
             Path.home(),
             state.get_app_data_dir(create=True) / state.BACKUP_DIR,
         )
+
+    success(f"added \033[3m{path}\033[0m.")
