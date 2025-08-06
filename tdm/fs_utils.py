@@ -47,3 +47,9 @@ def clean_parents(file: Path):
     while is_empty_dir(curr_parent):
         curr_parent.rmdir()
         curr_parent = curr_parent.parent
+
+
+@staticmethod
+def is_tdm_repo(repo_dir: Path) -> bool:
+    dirs = [State.FILE_DIR_NAME, State.FORK_DIR_NAME, State.BINARY_DIR]
+    return all((repo_dir / subdir).exists() for subdir in dirs)

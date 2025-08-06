@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 import click
@@ -52,3 +53,5 @@ def init(name: str) -> None:
 
     with (dotfiles_repo / "config.toml").open("w") as f:
         f.write(sample_config)
+
+    _ = subprocess.run(["git", "init"], check=False, cwd=dotfiles_repo, capture_output=True)

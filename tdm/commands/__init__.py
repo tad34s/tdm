@@ -1,6 +1,7 @@
 from tdm.commands.add import add
 from tdm.commands.deploy import deploy
 from tdm.commands.fork import fork
+from tdm.commands.git import git
 from tdm.commands.init import init
 from tdm.commands.patch import patch
 from tdm.commands.rejoin import rejoin

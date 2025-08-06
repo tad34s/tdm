@@ -35,5 +35,6 @@ def vacate(keep: bool) -> None:
         state.desymlink()
     else:
         recursively_copy_files(state.file_dir, state.file_dir, Path.home())
+    state.delete()
 
     # state.clean_app_dir()

@@ -70,8 +70,12 @@ class State:
         with state_file.open("r") as f:
             repo_dir = f.readline().strip()
             profile = f.readline().strip()
-
-        return cls(Path(repo_dir), profile)
+        try:
+            state = cls(Path(repo_dir), profile)
+        except Exception:
+            error("Failed reading tdm repository", exit=False)
+            return None
+        return state
 
     def get_relative_path(self, resource: Path) -> Path:
         if self.repo in resource.parents:
@@ -90,6 +94,11 @@ class State:
         state_file = app_dir / self.STATE_FILE_NAME
         with state_file.open("w") as f:
             f.writelines([str(self.repo) + "\n", self.profile + "\n"])
+
+    def delete(self) -> None:
+        app_dir = self.get_app_data_dir(create=True)
+        state_file = app_dir / self.STATE_FILE_NAME
+        state_file.unlink()
 
     def clean_app_dir(self) -> None:
         app_dir = self.get_app_data_dir(create=True)
