@@ -29,9 +29,11 @@ def git(git_args) -> None:
         result = subprocess.run(
             ["git", *git_args], check=False, cwd=state.repo, capture_output=True
         )
-        print_git(result.stdout.decode())
-        if result.stderr.decode():
-            print_git(result.stderr.decode(), error=True)
+
+        if std_out := result.stderr.decode():
+            print_git(std_out)
+        if err_out := result.stderr.decode():
+            print_git(err_out, error=True)
 
     except Exception as e:
         state.apply_forks()  # cleanup
