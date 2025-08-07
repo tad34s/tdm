@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import click
+from git import rmtree
 
 from tdm.fs_utils import remove_from_set_file
 from tdm.print_to_user import error, success
@@ -33,9 +34,12 @@ def rm(path: str, keep: bool):
     backup = state.get_app_data_dir(create=True) / state.BACKUP_DIR / relative_path
 
     # desymlink
-    desymlink_and_recover_item(
-        target_path, Path.home(), state.get_app_data_dir() / state.BACKUP_DIR
-    )
+    if not keep:
+        desymlink_and_recover_item(
+            target_path, Path.home(), state.get_app_data_dir() / state.BACKUP_DIR
+        )
+    else:
+        desymlink_and_recover_item(target_path, Path.home(), state.file_dir)
 
     if dotfile_path.is_dir():
         state.remove_added_dir(str(relative_path))
@@ -57,5 +61,11 @@ def rm(path: str, keep: bool):
             if not forked_item.exists():
                 continue
             forked_item.unlink()
+
+    if dotfile_path.exists():
+        if dotfile_path.is_dir():
+            rmtree(dotfile_path)
+        else:
+            dotfile_path.unlink()
 
     success(f"removed \033[3m{path}\033[0m.")

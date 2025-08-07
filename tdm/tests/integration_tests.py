@@ -165,6 +165,23 @@ def test_add_parent(tmp_home, used_repo, runner: CliRunner):
     check_files(files, tmp_home)
 
 
+def test_rm_keep(tmp_home: Path, used_repo, runner: CliRunner):
+    file = tmp_home / ".bashrc"
+    file.write_text("modified bash")
+
+    result = runner.invoke(cli, ["rm", "-k", ".bashrc"])
+    assert_result(result, "rm", tmp_home)
+    assert "modified bash" in file.read_text()
+
+    result = runner.invoke(cli, ["add", ".bashrc"])
+    assert_result(result, "add", tmp_home)
+
+    file.write_text("another bash")
+    result = runner.invoke(cli, ["rm", ".bashrc"])
+    assert_result(result, "rm", tmp_home)
+    assert "modified bash" in file.read_text()
+
+
 def test_rm_partially_symlinked(tmp_home, used_repo, runner: CliRunner):
     (tmp_home / ".config/polybar/.lazy-lock.json").touch()
     result = runner.invoke(cli, ["patch"])
@@ -180,6 +197,20 @@ def test_rm_partially_symlinked(tmp_home, used_repo, runner: CliRunner):
     result = runner.invoke(cli, ["add", ".config/polybar"])
     assert_result(result, "add", tmp_home)
     check_files(FILES, tmp_home)
+
+
+def test_remove_removes_changes(tmp_home, used_repo, runner: CliRunner):
+    (tmp_home / ".config/polybar/hi").touch()
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "patch", tmp_home)
+    result = runner.invoke(cli, ["rm", ".config/polybar"])
+    assert_result(result, "rm", tmp_home)
+    assert not (tmp_home / ".config/polybar/hi").exists()
+
+    result = runner.invoke(cli, ["add", ".config/polybar"])
+    assert_result(result, "add", tmp_home)
+
+    assert not (tmp_home / ".config/polybar/hi").exists()
 
 
 def test_add_and_remove_parent(tmp_home, used_repo, runner: CliRunner):

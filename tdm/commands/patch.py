@@ -67,12 +67,12 @@ def patch():
 
         kickout_ignored(state.file_dir / dir, state)
 
-        file_subtree = create_tree(
-            state,
-            state.file_dir / dir,
-            state.added_dirs,
-        )
+    file_subtree = create_tree(
+        state,
+        state.file_dir,
+        state.added_dirs,
+    )
 
-        symlink_tree(file_subtree, state)
+    symlink_tree(file_subtree, state)
 
     success("patched.")
