@@ -34,7 +34,7 @@ def rm(path: str, keep: bool):
 
     # desymlink
     desymlink_and_recover_item(
-        dotfile_path, state.file_dir, state.get_app_data_dir() / state.BACKUP_DIR
+        target_path, Path.home(), state.get_app_data_dir() / state.BACKUP_DIR
     )
 
     if dotfile_path.is_dir():

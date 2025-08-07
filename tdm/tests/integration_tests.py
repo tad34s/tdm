@@ -14,6 +14,8 @@ from tdm.tests.utils import assert_result, check_files, file_tree
 FILES: list[tuple[Path, str]] = [
     (Path(".config/nvim/lua/user/remaps.lua"), 'My remaps: \n vim vim.g.mapleader = " "'),
     (Path(".config/picom.conf"), "# My picom config"),
+    (Path(".config/polybar/config.ini"), "# polybar config"),
+    (Path(".config/polybar/launch.sh"), "# polybar script config"),
     (Path(".bashrc"), "echo hello from bashrc"),
     (Path(".config/nvim/.lazy-lock.json"), "{}"),
     (Path(".gitconfig"), "# git config"),
@@ -127,6 +129,7 @@ def used_repo(tmp_home: Path, runner: CliRunner):
 
     to_add = [
         tmp_home / ".config/nvim",
+        tmp_home / ".config/polybar",
         tmp_home / ".config/picom.conf",
         tmp_home / ".bashrc",
     ]
@@ -140,6 +143,7 @@ def used_repo(tmp_home: Path, runner: CliRunner):
 
     assert (tmp_home / ".bashrc").is_symlink(), ".bashrc is not symlink"
     assert (tmp_home / ".config/picom.conf").is_symlink(), "picomf.conf is not symlink"
+    assert (tmp_home / ".config/polybar").is_symlink(), "picomf.conf is not symlink"
     assert not (tmp_home / ".config/nvim").is_symlink(), "nvim is a symlink"
 
     bootstrap_script = repo / "bin" / "linux.sh"
@@ -156,16 +160,24 @@ def test_add_parent(tmp_home, used_repo, runner: CliRunner):
     result = runner.invoke(cli, ["add", ".config"])
     assert_result(result, "add", tmp_home)
 
-    files = FILES[0:3] + FILES[4:]
+    files = FILES.copy()
+    files.remove((Path(".config/nvim/.lazy-lock.json"), "{}"))
     check_files(files, tmp_home)
 
 
 def test_rm_partially_symlinked(tmp_home, used_repo, runner: CliRunner):
-    result = runner.invoke(cli, ["rm", ".config/nvim"])
-    assert_result(result, "rm", tmp_home)
+    (tmp_home / ".config/polybar/.lazy-lock.json").touch()
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "patch", tmp_home)
     check_files(FILES, tmp_home)
 
-    result = runner.invoke(cli, ["add", ".config/nvim"])
+    result = runner.invoke(cli, ["rm", ".config/polybar"])
+    assert_result(result, "rm", tmp_home)
+    assert not (tmp_home / ".config/polybar/config.ini").is_symlink()
+    assert not (tmp_home / ".config/polybar/launch.sh").is_symlink()
+    check_files(FILES, tmp_home)
+
+    result = runner.invoke(cli, ["add", ".config/polybar"])
     assert_result(result, "add", tmp_home)
     check_files(FILES, tmp_home)
 
@@ -175,7 +187,8 @@ def test_add_and_remove_parent(tmp_home, used_repo, runner: CliRunner):
     result = runner.invoke(cli, ["add", ".config"])
     assert_result(result, "add", tmp_home)
 
-    files = FILES[0:3] + FILES[4:]
+    files = FILES.copy()
+    files.remove((Path(".config/nvim/.lazy-lock.json"), "{}"))
 
     print("symlinked dirs", (tmp_home / "dotfiles" / ".tdm" / "added_dirs").read_text())
 
@@ -583,7 +596,7 @@ def test_patch_whole_dir_is_symlnked(tmp_home: Path, used_repo: Path, runner: Cl
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch")
     files = FILES.copy()
-    files.pop(3)
+    files.remove((Path(".config/nvim/.lazy-lock.json"), "{}"))
     check_files(files, tmp_home)
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch")
@@ -597,7 +610,7 @@ def test_patch_relinking_with_ignored(tmp_home: Path, used_repo: Path, runner: C
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch")
     files = FILES.copy()
-    files.pop(3)
+    files.remove((Path(".config/nvim/.lazy-lock.json"), "{}"))
     check_files(files, tmp_home)
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch")
