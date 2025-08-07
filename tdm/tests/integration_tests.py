@@ -562,6 +562,19 @@ def test_patch_relinking(tmp_home: Path, used_repo: Path, runner: CliRunner):
     check_files(FILES, tmp_home)
 
 
+def test_patch_whole_dir_is_symlnked(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    ignored = tmp_home / ".config/nvim/.lazy-lock.json"
+    ignored.unlink()
+    assert not ignored.exists()
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch")
+    files = FILES.copy()
+    files.pop(3)
+    check_files(files, tmp_home)
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch")
+
+
 # ---- git ----
 
 

@@ -47,21 +47,25 @@ def desymlink_and_recover_item(item: Path, base_path: Path, backup_location: Pat
 def desymlink_dir(
     src_dir: Path,
     src_dir_base: Path,
-    symlink_location_base: Path,
+    target_location_base: Path,
     backup_location: Path | None = None,
 ) -> None:
+    relative_path = src_dir.relative_to(src_dir_base)
+    target = target_location_base / relative_path
+    if target.is_symlink():
+        target.unlink()
     for item in src_dir.iterdir():
         relative_path = item.relative_to(src_dir_base)
-        target = symlink_location_base / relative_path
+        target = target_location_base / relative_path
         if target.is_symlink():
             if backup_location is not None:
                 desymlink_and_recover_item(
                     target,
-                    symlink_location_base,
+                    target_location_base,
                     backup_location,
                 )
             else:
                 target.unlink()
 
         elif item.is_dir():
-            desymlink_dir(item, src_dir_base, symlink_location_base, backup_location)
+            desymlink_dir(item, src_dir_base, target_location_base, backup_location)
