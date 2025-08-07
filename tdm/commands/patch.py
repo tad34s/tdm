@@ -1,7 +1,5 @@
-# TODO: Refactor with add
-# - copy + symlinking
-import shutil
 from pathlib import Path
+from shutil import copy, rmtree
 
 import click
 
@@ -22,7 +20,7 @@ def add_new_children(relative_path: Path, state: State):
         if resource.is_dir():
             selectively_copy(resource, state)
         else:
-            shutil.copy(resource, dotfile)
+            copy(resource, dotfile)
         return
 
     if resource.is_symlink():
@@ -43,6 +41,8 @@ def kickout_ignored(curr_src_dir: Path, state: State):
             relative_path = item.relative_to(state.file_dir)
             target_path = Path.home() / relative_path
             target_path.parent.mkdir(exist_ok=True, parents=True)
+            if target_path.is_dir():
+                rmtree(target_path)
             item.replace(target_path)
         if item.is_dir():
             kickout_ignored(item, state)

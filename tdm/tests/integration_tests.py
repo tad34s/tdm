@@ -601,6 +601,20 @@ def test_patch_kickout_dir(tmp_home: Path, used_repo: Path, runner: CliRunner):
     # assert_result(result, "Patch")
     (new_dir / ".lazy-lock.json").mkdir()
     (new_dir / ".lazy-lock.json" / "hi").touch()
+    (new_dir / ".lazy-lock.json" / "hi2").touch()
+    (new_dir / ".lazy-lock.json" / "hi3").mkdir()
+    print(file_tree(tmp_home))
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch", tmp_home)
+
+    # now kickout where the target is populated somehow
+    (tmp_home / ".config/nvim/.lazy-lock.json").unlink()
+    (tmp_home / ".config/nvim/.lazy-lock.json").mkdir()
+    (tmp_home / ".config/nvim/.lazy-lock.json/hi").touch()
+
+    (used_repo / "files" / ".config/nvim/.lazy-lock.json").mkdir()
+    (used_repo / "files" / ".config/nvim/.lazy-lock.json/hi").touch()
+
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch", tmp_home)
 
