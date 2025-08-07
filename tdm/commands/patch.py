@@ -39,14 +39,13 @@ def add_new_children(relative_path: Path, state: State):
 
 def kickout_ignored(curr_src_dir: Path, state: State):
     for item in curr_src_dir.iterdir():
-        if item.is_dir():
-            kickout_ignored(item, state)
-
         if state.is_ignored(item):
             relative_path = item.relative_to(state.file_dir)
             target_path = Path.home() / relative_path
             target_path.parent.mkdir(exist_ok=True, parents=True)
             item.replace(target_path)
+        if item.is_dir():
+            kickout_ignored(item, state)
 
 
 @click.command

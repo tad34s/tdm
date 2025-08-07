@@ -596,6 +596,15 @@ def test_patch(tmp_home: Path, used_repo: Path, runner: CliRunner):
     assert new_dir.is_symlink()
 
 
+def test_patch_kickout_dir(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    new_dir = tmp_home / ".config/polybar"
+    # assert_result(result, "Patch")
+    (new_dir / ".lazy-lock.json").mkdir()
+    (new_dir / ".lazy-lock.json" / "hi").touch()
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch", tmp_home)
+
+
 def test_patch_with_ignore(tmp_home: Path, used_repo: Path, runner: CliRunner):
     new_dir = tmp_home / ".config" / "nvim" / "plugins"
     new_dir.mkdir()
