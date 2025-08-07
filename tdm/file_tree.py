@@ -26,7 +26,7 @@ def create_tree(
 
     for item in curr_src_dir.iterdir():
         # excluding
-        if any(x in str(item) for x in state.config.exclude):
+        if state.is_excluded(item):
             could_symlink_all = False  # cannot symlink whole dir
             continue
 
@@ -45,7 +45,7 @@ def create_tree(
     # check if we can really replace the whole corresponding dir
     if corresponding_dir.exists():
         for item in corresponding_dir.iterdir():
-            if any(x in str(item) for x in state.config.ignore):
+            if state.is_ignored(item):
                 could_symlink_all = False
                 break
 

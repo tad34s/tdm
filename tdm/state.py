@@ -77,6 +77,12 @@ class State:
             return None
         return state
 
+    def is_ignored(self, path: Path) -> bool:
+        return any(x in str(path) for x in self.config.ignore)
+
+    def is_excluded(self, path: Path) -> bool:
+        return any(x in str(path) for x in self.config.exclude)
+
     def get_relative_path(self, resource: Path) -> Path:
         if self.repo in resource.parents:
             dotfile_path = resource

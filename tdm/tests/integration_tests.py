@@ -5,9 +5,10 @@ from pathlib import Path
 from types import TracebackType
 
 import pytest
-from click.testing import CliRunner, Result
+from click.testing import CliRunner
 
 from tdm.cli import cli
+from tdm.tests.utils import assert_result, check_files, file_tree
 
 FILES: list[tuple[Path, str]] = [
     (Path(".config/nvim/lua/user/remaps.lua"), 'My remaps: \n vim vim.g.mapleader = " "'),
@@ -16,56 +17,6 @@ FILES: list[tuple[Path, str]] = [
     (Path(".config/nvim/.lazy-lock.json"), "{}"),
     (Path(".gitconfig"), "# git config"),
 ]
-
-
-def file_tree(path: Path, prefix: str = "", old_indent="", indent="   ") -> str:
-    """Generate a string representation of the directory tree"""
-    output = []
-    item_name = path.name
-    if path.is_symlink():
-        item_name = "\033[36m" + item_name + f" -> {path.readlink()}" + "\033[0m"
-    elif path.is_dir():
-        item_name = "\033[34m" + item_name + "/" + "\033[0m"
-
-    item_text = f"{old_indent}{prefix}{item_name}"
-    output.append(item_text)
-
-    if path.is_dir() and ".git" != path.name:
-        children = sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name))
-        count = len(children)
-        for i, child in enumerate(children):
-            is_last = i == count - 1
-            if is_last:
-                new_prefix = "└── "
-                new_indent = indent + "   "
-            else:
-                new_prefix = "├── "
-                new_indent = indent + "|  "
-
-            child_output = file_tree(child, new_prefix, indent, new_indent)
-            output.append(child_output)
-
-    return "\n".join(output)
-
-
-def assert_result(result: Result, command_name: str, home: Path | None = None):
-    print(f"Output:\n{result.output}")
-    print(f"StdOut:\n{result.stdout}")
-    print(f"StdErr:\n{result.stderr}")
-    print(f"Exception:{result.exception}")
-    tracebakc_ig: TracebackType = result.exc_info[2]
-    print("Traceback:")
-    print(traceback.print_tb(tracebakc_ig))
-    print("-------")
-    if home:
-        print(f"Tree after {command_name}: \n", file_tree(home))
-    assert result.exit_code == 0, f"{command_name} failed\n"
-
-
-def check_files(files: list[tuple[Path, str]], home: Path):
-    for file, content in files:
-        real_file = home / file
-        assert real_file.read_text() == content
 
 
 @pytest.fixture
@@ -583,6 +534,21 @@ def test_patch_with_ignore(tmp_home: Path, used_repo: Path, runner: CliRunner):
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch")
     print(file_tree(tmp_home))
+    assert not (new_dir).is_symlink()
+    assert (new_dir / "floaterminal.lua").is_symlink()
+
+
+def test_patch_new_ignore(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    new_dir = tmp_home / ".config" / "nvim" / "plugins"
+    new_dir.mkdir()
+    (new_dir / "floaterminal.lua").touch()
+    (new_dir / "lazy-lock.json").touch()
+    result = runner.invoke(cli, ["patch"])
+    # assert_result(result, "Patch")
+    assert (new_dir).is_symlink()
+    (new_dir / "lazy-lock.json").rename(new_dir / ".lazy-lock.json")
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch")
     assert not (new_dir).is_symlink()
     assert (new_dir / "floaterminal.lua").is_symlink()
 
