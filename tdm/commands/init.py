@@ -60,8 +60,6 @@ def init(name: str, git: bool) -> None:
     if git:
         remote = input("Git remote: ")
 
-        print("remote", remote)
-
         if remote:
             _ = subprocess.run(
                 ["git", "remote", "add", "origin", remote],

@@ -136,10 +136,11 @@ class State:
             return
 
         bootstrap_script = self.repo / self.BINARY_DIR / self.config.bootstrap
-        print(bootstrap_script)
 
         if not bootstrap_script.exists():
             error("Bootstrap script specified does not exists.")
+
+        print(f"Running bootstrap \033[3m{bootstrap_script.name}\033[0m...")
 
         subprocess.run(
             str(bootstrap_script),

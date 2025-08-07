@@ -10,7 +10,6 @@ from tdm.file_tree import create_tree, symlink_tree
 from tdm.print_to_user import error, success
 from tdm.state import State
 from tdm.symlink_utils import desymlink_dir
-from tdm.tests.utils import file_tree
 
 
 def add_new_children(relative_path: Path, state: State):
@@ -57,11 +56,6 @@ def patch():
     for dir in state.added_dirs:
         add_new_children(Path(dir), state)
 
-        if str(dir) == ".config/nvim":
-            print("----------")
-            print("before")
-            print(file_tree(Path(dir)))
-
         desymlink_dir(
             state.file_dir / dir,
             state.file_dir,
@@ -76,13 +70,6 @@ def patch():
             state.added_dirs,
         )
 
-        if str(dir) == ".config/nvim":
-            print("desymlinked")
-            print(file_tree(Path(dir)))
-
         symlink_tree(file_subtree, state)
-        if str(dir) == ".config/nvim":
-            print("relinked")
-            print(file_tree(Path(dir)))
 
     success("patched.")
