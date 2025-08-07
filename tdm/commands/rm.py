@@ -37,11 +37,6 @@ def rm(path: str, keep: bool):
         dotfile_path, state.file_dir, state.get_app_data_dir() / state.BACKUP_DIR
     )
 
-    # delete backup
-    backup = state.get_app_data_dir(create=True) / state.BACKUP_DIR / relative_path
-    if backup.exists():
-        backup.unlink()
-
     if dotfile_path.is_dir():
         state.remove_added_dir(str(relative_path))
 
