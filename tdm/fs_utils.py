@@ -43,8 +43,9 @@ def is_empty_dir(dir: Path) -> bool:
 
 
 def clean_parents(file: Path):
+    """Deletes parents if they are empty."""
     curr_parent = file.parent
-    while is_empty_dir(curr_parent):
+    while curr_parent.exists() and is_empty_dir(curr_parent):
         curr_parent.rmdir()
         curr_parent = curr_parent.parent
 
