@@ -5,6 +5,7 @@ import click
 from tdm.fs_utils import remove_from_set_file
 from tdm.print_to_user import error, success
 from tdm.state import State
+from tdm.symlink_utils import desymlink_and_recover_item
 
 
 @click.command
@@ -23,7 +24,7 @@ def rm(path: str, keep: bool):
 
     relative_path = state.get_relative_path(resource)
     dotfile_path = state.file_dir / relative_path
-    home_path = Path.home() / relative_path
+    target_path = Path.home() / relative_path
 
     if not dotfile_path.exists():
         error("Selected resource not managed.")
@@ -32,11 +33,9 @@ def rm(path: str, keep: bool):
     backup = state.get_app_data_dir(create=True) / state.BACKUP_DIR / relative_path
 
     # desymlink
-    home_path.unlink()
-    if not keep:
-        backup.resolve().replace(home_path)
-    else:
-        dotfile_path.resolve().replace(home_path)
+    desymlink_and_recover_item(
+        dotfile_path, state.file_dir, state.get_app_data_dir() / state.BACKUP_DIR
+    )
 
     # delete backup
     backup = state.get_app_data_dir(create=True) / state.BACKUP_DIR / relative_path

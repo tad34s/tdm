@@ -36,12 +36,15 @@ def symlink_and_backup_item(
     target_path.symlink_to(item, target_is_directory=item.is_dir())
 
 
-def desymlink_and_recover_item(item: Path, base_path: Path, backup_location: Path) -> None:
-    relative_path = item.relative_to(base_path)
+def desymlink_and_recover_item(target_item: Path, base_path: Path, backup_location: Path) -> None:
+    relative_path = target_item.relative_to(base_path)
     backup_path = backup_location / relative_path
-    item.unlink()
+    if target_item.is_symlink():
+        target_item.unlink()
+    elif target_item.is_dir():
+        shutil.rmtree(target_item)
     if backup_path.exists():
-        backup_path.replace(item)
+        backup_path.replace(target_item)
 
     clean_parents(backup_path)
 

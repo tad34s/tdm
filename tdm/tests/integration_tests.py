@@ -160,6 +160,12 @@ def test_add_parent(tmp_home, used_repo, runner: CliRunner):
     check_files(files, tmp_home)
 
 
+def test_rm_partially_symlinked(tmp_home, used_repo, runner: CliRunner):
+    result = runner.invoke(cli, ["rm", ".config/nvim"])
+    assert_result(result, "rm", tmp_home)
+    check_files(FILES, tmp_home)
+
+
 def test_add_and_remove_parent(tmp_home, used_repo, runner: CliRunner):
     (tmp_home / ".config" / "nvim" / ".lazy-lock.json").unlink()
     result = runner.invoke(cli, ["add", ".config"])
