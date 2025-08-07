@@ -30,8 +30,8 @@ def git(git_args) -> None:
             ["git", *git_args], check=False, cwd=state.repo, capture_output=True
         )
 
-        if std_out := result.stderr.decode():
-            print_git(std_out)
+        if std_out := result.stdout.decode():
+            print_git(result.stdout.decode())
         if err_out := result.stderr.decode():
             print_git(err_out, error=True)
 

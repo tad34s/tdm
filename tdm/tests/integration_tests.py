@@ -1,4 +1,5 @@
 import io
+import shutil
 import tomllib
 import traceback
 from pathlib import Path
@@ -516,6 +517,9 @@ def test_use_invalid_profile(tmp_home, used_repo, runner: CliRunner):
     assert "No such profile" in result.output or "Profile not found" in result.output
 
 
+# ---- patch ----
+
+
 def test_patch(tmp_home: Path, used_repo: Path, runner: CliRunner):
     new_dir = tmp_home / ".config" / "nvim" / "plugins"
     new_dir.mkdir()
@@ -573,6 +577,35 @@ def test_patch_whole_dir_is_symlnked(tmp_home: Path, used_repo: Path, runner: Cl
     check_files(files, tmp_home)
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch")
+
+
+def test_patch_relinking_with_ignored(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    # symlinking whole neovim
+    ignored = tmp_home / ".config/nvim/.lazy-lock.json"
+    ignored.unlink()
+    assert not ignored.exists()
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch")
+    files = FILES.copy()
+    files.pop(3)
+    check_files(files, tmp_home)
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch")
+
+    # replacing symlink with actual files
+    nv_dir = tmp_home / ".config/nvim"
+    nv_dir_src = used_repo / "files" / ".config/nvim"
+    nv_dir.unlink()
+    shutil.copytree(nv_dir_src, nv_dir)
+
+    # adding back ignore and patching
+    ignored.touch()
+    (nv_dir / "init.lua").touch()
+    print(file_tree(tmp_home))
+
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch")
+    print(file_tree(tmp_home))
 
 
 # ---- git ----

@@ -28,6 +28,9 @@ def add_new_children(relative_path: Path, state: State):
     if resource.is_symlink():
         return
 
+    if not resource.is_dir():
+        return
+
     for item in resource.iterdir():
         if any(x in str(item) for x in state.config.ignore):
             continue

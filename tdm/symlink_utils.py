@@ -8,6 +8,8 @@ def symlink_item(item: Path, original_base: Path, new_base: Path) -> None:
     relative_path = item.relative_to(original_base)
     target_path = new_base / relative_path
     if target_path.exists():
+        if target_path.is_symlink() and target_path.readlink() == item:
+            return
         if target_path.is_dir():
             shutil.rmtree(target_path)
         else:

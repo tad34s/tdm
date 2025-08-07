@@ -36,7 +36,6 @@ def file_tree(path: Path, prefix: str = "", old_indent="", indent="   ") -> str:
 
 
 def assert_result(result: Result, command_name: str, home: Path | None = None):
-    print(f"Output:\n{result.output}")
     print(f"StdOut:\n{result.stdout}")
     print(f"StdErr:\n{result.stderr}")
     print(f"Exception:{result.exception}")
