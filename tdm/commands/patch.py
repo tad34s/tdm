@@ -57,6 +57,11 @@ def patch():
         return
 
     for dir in state.added_dirs:
+        if not (state.file_dir / dir).exists():
+            state.remove_added_dir(dir)
+            state.remove_backup(Path(dir))
+            continue
+
         add_new_children(Path(dir), state)
 
         desymlink_dir(

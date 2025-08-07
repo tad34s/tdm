@@ -228,6 +228,18 @@ def test_add_and_remove_parent(tmp_home, used_repo, runner: CliRunner):
     check_files(files, tmp_home)
 
 
+def test_forcefully_removing_and_adding(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    file = used_repo / "files" / ".config/polybar"
+    (tmp_home / ".config/polybar").unlink()
+    file.replace(tmp_home / ".config/polybar")
+
+    result = runner.invoke(cli, ["patch"])
+
+    result = runner.invoke(cli, ["add", ".config/polybar"])
+    assert_result(result, "add", tmp_home)
+    check_files(FILES, tmp_home)
+
+
 def test_use(used_repo, runner: CliRunner):
     result = runner.invoke(cli, ["use", "linux-dev"])
     assert_result(result, "use")

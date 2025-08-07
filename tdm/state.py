@@ -2,6 +2,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from git import rmtree
+
 from tdm.config import Config
 from tdm.fs_utils import add_to_set_file, read_set_file, remove_from_set_file
 from tdm.print_to_user import error
@@ -212,3 +214,11 @@ class State:
         )
 
         self.unapply_forks()
+
+    def remove_backup(self, relative_path: Path):
+        backup = self.get_app_data_dir() / self.BACKUP_DIR / relative_path
+        if backup.exists():
+            if backup.is_dir():
+                rmtree(backup)
+            else:
+                backup.unlink()
