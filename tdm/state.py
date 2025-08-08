@@ -144,10 +144,22 @@ class State:
 
         print(f"Running bootstrap \033[3m{bootstrap_script.name}\033[0m...")
 
-        subprocess.run(
-            str(bootstrap_script),
-            cwd=str(self.repo / self.BINARY_DIR),
-        )
+        try:
+            result = subprocess.run(
+                str(bootstrap_script),
+                cwd=str(self.repo / self.BINARY_DIR),
+            )
+            if result.returncode != 0:
+                if std_out := result.stderr.decode():
+                    error(f"Failed to execute bootstrap: {std_out}.")
+
+                elif std_out := result.stdout.decode():
+                    error(f"Failed to execute bootstrap: {std_out}.")
+
+                else:
+                    error("Failed to execute bootstrap.")
+        except Exception as e:
+            error(f"Failed to execute bootstrap: {e}.")
 
     def apply_forks(self) -> None:
         """Symlink each fork to source"""

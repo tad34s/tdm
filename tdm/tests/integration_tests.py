@@ -245,6 +245,13 @@ def test_use(used_repo, runner: CliRunner):
     assert_result(result, "use")
 
 
+def test_bootstrap_use(used_repo, runner: CliRunner):
+    bootstrap_script = used_repo / "bin" / "linux.sh"
+    bootstrap_script.chmod(0o644)
+    result = runner.invoke(cli, ["use", "linux-dev", "-b"])
+    assert result.exit_code == 1
+
+
 def test_fork_file(tmp_home: Path, used_repo: Path, runner: CliRunner):
     result = runner.invoke(cli, ["use", "linux-dev"])
     assert result.exit_code == 0, f"Use failed: {result.output}"
