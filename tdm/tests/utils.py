@@ -1,8 +1,15 @@
 import traceback
+from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
 
 from click.testing import Result
+
+
+@dataclass
+class File:
+    path: Path
+    contents: str
 
 
 def file_tree(path: Path, prefix: str = "", old_indent="", indent="   ") -> str:
@@ -48,7 +55,8 @@ def assert_result(result: Result, command_name: str, home: Path | None = None):
     assert result.exit_code == 0, f"{command_name} failed\n"
 
 
-def check_files(files: list[tuple[Path, str]], home: Path):
-    for file, content in files:
-        real_file = home / file
-        assert real_file.read_text() == content
+def check_files(files: list[File], home: Path):
+    for file in files:
+        real_file = home / file.path
+        assert real_file.exists()
+        assert real_file.read_text() == file.contents

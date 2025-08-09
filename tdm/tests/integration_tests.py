@@ -1,97 +1,15 @@
-import io
 import shutil
 import tomllib
 import traceback
 from pathlib import Path
 from types import TracebackType
 
-import pytest
 from click.testing import CliRunner
 
 from tdm.cli import cli
+from tdm.tests.fixtures import *
+from tdm.tests.fixtures import FILES
 from tdm.tests.utils import assert_result, check_files, file_tree
-
-FILES: list[tuple[Path, str]] = [
-    (Path(".config/nvim/lua/user/remaps.lua"), 'My remaps: \n vim vim.g.mapleader = " "'),
-    (Path(".config/picom.conf"), "# My picom config"),
-    (Path(".config/polybar/config.ini"), "# polybar config"),
-    (Path(".config/polybar/launch.sh"), "# polybar script config"),
-    (Path(".bashrc"), "echo hello from bashrc"),
-    (Path(".config/nvim/.lazy-lock.json"), "{}"),
-    (Path(".gitconfig"), "# git config"),
-]
-
-
-@pytest.fixture
-def runner() -> CliRunner:
-    return CliRunner()
-
-
-@pytest.fixture
-def tmp_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Create temporary home directory and set environment"""
-    home = tmp_path / "home"
-    home.mkdir()
-    monkeypatch.setattr(Path, "home", lambda: home)
-    monkeypatch.setenv("HOME", str(home))
-    monkeypatch.chdir(home)
-    for file, content in FILES:
-        new_file = home / file
-        new_file.parent.mkdir(exist_ok=True, parents=True)
-        with new_file.open("w") as f:
-            f.write(content)
-    print("Starting home:")
-    print(file_tree(home))
-    return home
-
-
-@pytest.fixture
-def tdm_prepped_repo(tmp_home: Path, runner: CliRunner) -> Path:
-    """Initialize a new TDM repository"""
-    repo = tmp_home / "dotfiles"
-    input_stream = io.StringIO("\n")  # Simulates pressing Enter
-    result = runner.invoke(cli, ["init", "--git", str(repo)], input="\n")
-    assert_result(result, "Init", tmp_home)
-
-    # Create sample dotfiles in the repository
-    files_dir = repo / "files"
-
-    # Create sample config file
-    bashrc = files_dir / ".bashrc"
-    bashrc.write_text("# Sample bash config")
-
-    # Create sample config directory
-    config_dir = files_dir / ".config" / "myapp"
-    config_dir.mkdir(parents=True)
-
-    # Create config file inside director
-    (config_dir / "settings.json").write_text('{"theme": "dark"}')
-
-    # Create nested directory structure
-    deep_dir = files_dir / ".deep" / "nested" / "configs"
-    deep_dir.mkdir(parents=True)
-    (deep_dir / "prefs.toml").write_text("[ui]\nfont_size = 12")
-
-    # Create executable in bin directory
-    bin_dir = repo / "bin"
-    bootstrap = bin_dir / "bootstrap.sh"
-    bootstrap.write_text("#!/bin/bash\necho 'Bootstrapping...'")
-    bootstrap.chmod(0o755)  # Make executable
-
-    bootstrap_script = repo / "bin" / "linux.sh"
-    bootstrap_script.write_text("#!/bin/bash\ntouch ~/bootstrap_ran_linux")
-    bootstrap_script.chmod(0o755)
-
-    return repo
-
-
-@pytest.fixture
-def deployed_repo(tdm_prepped_repo: Path, runner: CliRunner, tmp_home: Path) -> Path:
-    """Deploy a TDM repository"""
-    result = runner.invoke(cli, ["deploy", str(tdm_prepped_repo), "--profile=base"])
-    assert result.exit_code == 0, f"Deploy failed: {result.output}"
-
-    return tdm_prepped_repo
 
 
 def test_init_command(tdm_prepped_repo: Path) -> None:
@@ -117,42 +35,63 @@ def test_deploy_command(deployed_repo: Path, tmp_home: Path) -> None:
     file_tree(tmp_home)
 
 
-@pytest.fixture()
-def used_repo(tmp_home: Path, runner: CliRunner):
-    repo = tmp_home / "dotfiles"
+def test_deploy_command(
+    used_repo: Path,
+    additional_dotfiles: Path,
+    tmp_home: Path,
+    runner: CliRunner,
+) -> None:
+    """Test deployment of a repo"""
+    # Verify state files
+    state_file = tmp_home / ".local" / "share" / "tdm" / "state"
+    assert state_file.exists()
 
-    result = runner.invoke(cli, ["init", str(repo)])
-    assert result.exit_code == 0, f"Init failed: {result.output}"
+    result = runner.invoke(cli, ["deploy", "teckafiles"])
+    assert_result(result, "Deploy")
 
-    result = runner.invoke(cli, ["deploy", str(repo)])
-    assert result.exit_code == 0, f"Deploy failed: {result.output}"
+    (tmp_home / ".config/nvim/.lazy-lock.json").unlink()
 
-    to_add = [
-        tmp_home / ".config/nvim",
-        tmp_home / ".config/polybar",
-        tmp_home / ".config/picom.conf",
-        tmp_home / ".bashrc",
-    ]
+    result = runner.invoke(cli, ["vacate"])
+    assert_result(result, "Vacate")
 
-    for file_to_add in to_add:
-        result = runner.invoke(cli, ["add", str(file_to_add)])
-        assert_result(result, "Add")
+    result = runner.invoke(cli, ["deploy", "dotfiles"])
+    assert_result(result, "Deploy")
 
-    print("\nAfter tdm use:")
-    print(file_tree(tmp_home))
+    result = runner.invoke(cli, ["vacate"])
+    assert_result(result, "Vacate")
 
-    assert (tmp_home / ".bashrc").is_symlink(), ".bashrc is not symlink"
-    assert (tmp_home / ".config/picom.conf").is_symlink(), "picomf.conf is not symlink"
-    assert (tmp_home / ".config/polybar").is_symlink(), "picomf.conf is not symlink"
-    assert not (tmp_home / ".config/nvim").is_symlink(), "nvim is a symlink"
+    result = runner.invoke(cli, ["deploy", "teckafiles"])
+    assert_result(result, "Deploy")
 
-    bootstrap_script = repo / "bin" / "linux.sh"
-    bootstrap_script.write_text("#!/bin/bash\ntouch ~/bootstrap_ran_linux")
-    bootstrap_script.chmod(0o755)
 
-    check_files(FILES, tmp_home)
+def test_deploy_command(used_repo: Path, tmp_home: Path, runner: CliRunner) -> None:
+    result = runner.invoke(cli, ["init", "teckafiles"])
+    assert_result(result, "init")
 
-    return repo
+    result = runner.invoke(cli, ["deploy", "teckafiles"])
+    assert_result(result, "deploy")
+
+    (tmp_home / ".config/nvim/.lazy-lock.json").unlink()
+    result = runner.invoke(cli, ["add", ".config/nvim"])
+    assert_result(result, "add")
+
+
+def test_deploy_invalid_directory(tmp_home, runner: CliRunner):
+    """Test deploy with non-existent directory"""
+    result = runner.invoke(cli, ["deploy", "/non/existent/path"])
+    assert result.exit_code != 0
+    assert "Directory provided does not exist" in result.output
+
+
+def test_deploy_non_tdm_repo(tmp_home, runner: CliRunner):
+    """Test deploy with directory that's not a TDM repo"""
+    # Create a directory that's not a TDM repo
+    non_repo = tmp_home / "not-a-repo"
+    non_repo.mkdir()
+
+    result = runner.invoke(cli, ["deploy", str(non_repo)])
+    assert result.exit_code != 0
+    assert "Not a valid tdm repo" in result.output
 
 
 def test_add_parent(tmp_home, used_repo, runner: CliRunner):
@@ -161,7 +100,7 @@ def test_add_parent(tmp_home, used_repo, runner: CliRunner):
     assert_result(result, "add", tmp_home)
 
     files = FILES.copy()
-    files.remove((Path(".config/nvim/.lazy-lock.json"), "{}"))
+    files.remove(File(Path(".config/nvim/.lazy-lock.json"), "{}"))
     check_files(files, tmp_home)
 
 
@@ -219,7 +158,7 @@ def test_add_and_remove_parent(tmp_home, used_repo, runner: CliRunner):
     assert_result(result, "add", tmp_home)
 
     files = FILES.copy()
-    files.remove((Path(".config/nvim/.lazy-lock.json"), "{}"))
+    files.remove(File(Path(".config/nvim/.lazy-lock.json"), "{}"))
 
     print("symlinked dirs", (tmp_home / "dotfiles" / ".tdm" / "added_dirs").read_text())
 
@@ -402,13 +341,9 @@ def test_vacate_keep(tmp_home: Path, used_repo: Path, runner: CliRunner):
     assert result.exit_code == 0, f"Use failed: {result.output}"
     (tmp_home / ".config/nvim/lua/user/remaps.lua").resolve().write_text("echo Different remaps")
     result = runner.invoke(cli, ["vacate", "-k"])
-    files = [
-        (Path(".config/nvim/lua/user/remaps.lua"), "echo Different remaps"),
-        (Path(".config/picom.conf"), "# My picom config"),
-        (Path(".bashrc"), "echo hello from bashrc"),
-        (Path(".config/nvim/.lazy-lock.json"), "{}"),
-        (Path(".gitconfig"), "# git config"),
-    ]
+    i = [str(file.path) for file in FILES].index(".config/nvim/lua/user/remaps.lua")
+    files = FILES.copy()
+    files[i].contents = "echo Different remaps"
     check_files(files, tmp_home)
 
 
@@ -496,24 +431,6 @@ def test_rejoin_keep(tmp_home: Path, used_repo: Path, runner: CliRunner):
     # Verify original file was replaced with forked version
     original_path = used_repo / "files" / ".bashrc"
     assert original_path.read_text() == "echo Forked text"
-
-
-def test_deploy_invalid_directory(tmp_home, runner: CliRunner):
-    """Test deploy with non-existent directory"""
-    result = runner.invoke(cli, ["deploy", "/non/existent/path"])
-    assert result.exit_code != 0
-    assert "Directory provided does not exist" in result.output
-
-
-def test_deploy_non_tdm_repo(tmp_home, runner: CliRunner):
-    """Test deploy with directory that's not a TDM repo"""
-    # Create a directory that's not a TDM repo
-    non_repo = tmp_home / "not-a-repo"
-    non_repo.mkdir()
-
-    result = runner.invoke(cli, ["deploy", str(non_repo)])
-    assert result.exit_code != 0
-    assert "Not a valid tdm repo" in result.output
 
 
 def test_command_without_deployment(tmp_home, runner: CliRunner):
@@ -669,7 +586,7 @@ def test_patch_whole_dir_is_symlnked(tmp_home: Path, used_repo: Path, runner: Cl
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch")
     files = FILES.copy()
-    files.remove((Path(".config/nvim/.lazy-lock.json"), "{}"))
+    files.remove(File(Path(".config/nvim/.lazy-lock.json"), "{}"))
     check_files(files, tmp_home)
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch")
@@ -683,7 +600,7 @@ def test_patch_relinking_with_ignored(tmp_home: Path, used_repo: Path, runner: C
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch")
     files = FILES.copy()
-    files.remove((Path(".config/nvim/.lazy-lock.json"), "{}"))
+    files.remove(File(Path(".config/nvim/.lazy-lock.json"), "{}"))
     check_files(files, tmp_home)
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch")
