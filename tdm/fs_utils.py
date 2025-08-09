@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 
@@ -50,7 +51,8 @@ def clean_parents(file: Path):
         curr_parent = curr_parent.parent
 
 
-@staticmethod
-def is_tdm_repo(repo_dir: Path) -> bool:
-    dirs = [State.FILE_DIR_NAME, State.FORK_DIR_NAME, State.BINARY_DIR]
-    return all((repo_dir / subdir).exists() for subdir in dirs)
+def remove_path(path: Path):
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()

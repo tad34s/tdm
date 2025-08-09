@@ -234,3 +234,15 @@ class State:
                 rmtree(backup)
             else:
                 backup.unlink()
+
+    def copy_dir_to_repo(self, real_dir: Path) -> None:
+        for item in real_dir.iterdir():
+            if any(x in str(item) for x in self.config.ignore):
+                continue
+            if item.is_dir():
+                self.copy_dir_to_repo(item)
+            else:
+                relative_path = item.relative_to(Path.home())
+                dest_dotfiles = self.file_dir / relative_path
+                dest_dotfiles.parent.mkdir(exist_ok=True, parents=True)
+                shutil.copy(item, dest_dotfiles)

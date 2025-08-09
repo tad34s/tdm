@@ -3,7 +3,6 @@ from shutil import copy, rmtree
 
 import click
 
-from tdm.commands.add import selectively_copy
 from tdm.file_tree import create_tree, symlink_tree
 from tdm.print_to_user import error, success
 from tdm.state import State
@@ -18,7 +17,7 @@ def add_new_children(relative_path: Path, state: State):
     if not dotfile.exists():
         dotfile.parent.mkdir(exist_ok=True, parents=True)
         if resource.is_dir():
-            selectively_copy(resource, state)
+            state.copy_dir_to_repo(resource)
         else:
             copy(resource, dotfile)
         return

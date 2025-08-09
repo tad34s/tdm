@@ -9,19 +9,6 @@ from tdm.state import State
 from tdm.symlink_utils import desymlink_dir, symlink_and_backup_item
 
 
-def selectively_copy(real_dir: Path, state: State) -> None:
-    for item in real_dir.iterdir():
-        if any(x in str(item) for x in state.config.ignore):
-            continue
-        if item.is_dir():
-            selectively_copy(item, state)
-        else:
-            relative_path = item.relative_to(Path.home())
-            dest_dotfiles = state.file_dir / relative_path
-            dest_dotfiles.parent.mkdir(exist_ok=True, parents=True)
-            shutil.copy(item, dest_dotfiles)
-
-
 @click.command
 @click.argument("path")
 def add(path: str):
@@ -64,7 +51,7 @@ def add(path: str):
 
     if resource.is_dir():
         state.add_added_dir(str(relative_path))
-        selectively_copy(resource, state)
+        state.copy_dir_to_repo(resource)
         file_subtree = create_tree(
             state,
             state.file_dir / relative_path,

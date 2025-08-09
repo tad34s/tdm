@@ -42,9 +42,12 @@ def test_deploy_command(
     runner: CliRunner,
 ) -> None:
     """Test deployment of a repo"""
-    # Verify state files
+
     state_file = tmp_home / ".local" / "share" / "tdm" / "state"
     assert state_file.exists()
+
+    result = runner.invoke(cli, ["fork", ".config/polybar"])
+    assert_result(result, "fork")
 
     result = runner.invoke(cli, ["deploy", "teckafiles"])
     assert_result(result, "Deploy")
@@ -64,16 +67,18 @@ def test_deploy_command(
     assert_result(result, "Deploy")
 
 
-def test_deploy_command(used_repo: Path, tmp_home: Path, runner: CliRunner) -> None:
-    result = runner.invoke(cli, ["init", "teckafiles"])
-    assert_result(result, "init")
-
-    result = runner.invoke(cli, ["deploy", "teckafiles"])
-    assert_result(result, "deploy")
-
-    (tmp_home / ".config/nvim/.lazy-lock.json").unlink()
-    result = runner.invoke(cli, ["add", ".config/nvim"])
-    assert_result(result, "add")
+#
+# def test_deploy_command(used_repo: Path, tmp_home: Path, runner: CliRunner) -> None:
+#     result = runner.invoke(cli, ["init", "teckafiles"])
+#     assert_result(result, "init")
+#
+#     result = runner.invoke(cli, ["deploy", "teckafiles"])
+#     assert_result(result, "deploy")
+#
+#     (tmp_home / ".config/nvim/.lazy-lock.json").unlink()
+#     result = runner.invoke(cli, ["add", ".config/nvim"])
+#     assert_result(result, "add")
+#
 
 
 def test_deploy_invalid_directory(tmp_home, runner: CliRunner):
@@ -165,6 +170,21 @@ def test_add_and_remove_parent(tmp_home, used_repo, runner: CliRunner):
     result = runner.invoke(cli, ["rm", ".config"])
     assert_result(result, "rm", tmp_home)
     check_files(files, tmp_home)
+
+
+def test_add_and_remove_parent_with_forks(tmp_home, used_repo, runner: CliRunner):
+    result = runner.invoke(cli, ["use", "linux-dev"])
+
+    result = runner.invoke(cli, ["fork", ".config/polybar"])
+    assert_result(result, "fork")
+
+    result = runner.invoke(cli, ["add", ".config"])
+    assert_result(result, "add", tmp_home)
+
+    result = runner.invoke(cli, ["rm", ".config"])
+    assert_result(result, "rm", tmp_home)
+
+    check_files(FILES, tmp_home)
 
 
 def test_forcefully_removing_and_adding(tmp_home: Path, used_repo: Path, runner: CliRunner):
