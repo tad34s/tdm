@@ -51,8 +51,41 @@ def clean_parents(file: Path):
         curr_parent = curr_parent.parent
 
 
-def remove_path(path: Path):
+def delete(path: Path) -> None:
     if path.is_dir():
         shutil.rmtree(path)
     else:
         path.unlink()
+
+
+def move(src: Path, dest: Path) -> None:
+    shutil.move(src, dest)
+
+
+def copy_skip_present(src: Path, dest: Path) -> None:
+    """Copy from src to dest.
+    If the src or a child of the src is already at the destination we skip it (this part of destination is unchanged)
+    """
+
+    def recursively_copy(src_dir: Path, dest_dir: Path):
+        for item in src_dir.iterdir():
+            relative_path = item.relative_to(src_dir)
+            target = dest_dir / relative_path
+            if item.is_file():
+                # Skip existing files
+                if target.exists():
+                    continue
+
+                # Ensure parent directory exists
+                target.parent.mkdir(parents=True, exist_ok=True)
+
+                # Copy file with metadata
+                shutil.copy2(item, target)
+            else:
+                recursively_copy(item, target)
+
+    if src.is_file() and not dest.exists():
+        dest.parent.mkdir(exist_ok=True, parents=True)
+        shutil.copy2(src, dest)
+    else:
+        recursively_copy(src, dest)

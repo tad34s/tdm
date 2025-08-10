@@ -7,6 +7,7 @@ from types import TracebackType
 from click.testing import CliRunner
 
 from tdm.cli import cli
+from tdm.fs_utils import move
 from tdm.tests.fixtures import *
 from tdm.tests.fixtures import FILES
 from tdm.tests.utils import assert_result, check_files, file_tree
@@ -35,7 +36,7 @@ def test_deploy_command(deployed_repo: Path, tmp_home: Path) -> None:
     file_tree(tmp_home)
 
 
-def test_deploy_command(
+def test_deploy_command_forks(
     used_repo: Path,
     additional_dotfiles: Path,
     tmp_home: Path,
@@ -46,39 +47,31 @@ def test_deploy_command(
     state_file = tmp_home / ".local" / "share" / "tdm" / "state"
     assert state_file.exists()
 
+    result = runner.invoke(cli, ["deploy", "dotfiles"])
+    assert_result(result, "Deploy")
+    check_files(FILES, tmp_home)
+
     result = runner.invoke(cli, ["fork", ".config/polybar"])
     assert_result(result, "fork")
+    check_files(FILES, tmp_home)
 
     result = runner.invoke(cli, ["deploy", "teckafiles"])
     assert_result(result, "Deploy")
-
-    (tmp_home / ".config/nvim/.lazy-lock.json").unlink()
+    check_files(FILES, tmp_home)
 
     result = runner.invoke(cli, ["vacate"])
     assert_result(result, "Vacate")
 
     result = runner.invoke(cli, ["deploy", "dotfiles"])
     assert_result(result, "Deploy")
+    check_files(FILES, tmp_home)
 
     result = runner.invoke(cli, ["vacate"])
     assert_result(result, "Vacate")
 
     result = runner.invoke(cli, ["deploy", "teckafiles"])
     assert_result(result, "Deploy")
-
-
-#
-# def test_deploy_command(used_repo: Path, tmp_home: Path, runner: CliRunner) -> None:
-#     result = runner.invoke(cli, ["init", "teckafiles"])
-#     assert_result(result, "init")
-#
-#     result = runner.invoke(cli, ["deploy", "teckafiles"])
-#     assert_result(result, "deploy")
-#
-#     (tmp_home / ".config/nvim/.lazy-lock.json").unlink()
-#     result = runner.invoke(cli, ["add", ".config/nvim"])
-#     assert_result(result, "add")
-#
+    check_files(FILES, tmp_home)
 
 
 def test_deploy_invalid_directory(tmp_home, runner: CliRunner):
@@ -190,7 +183,7 @@ def test_add_and_remove_parent_with_forks(tmp_home, used_repo, runner: CliRunner
 def test_forcefully_removing_and_adding(tmp_home: Path, used_repo: Path, runner: CliRunner):
     file = used_repo / "files" / ".config/polybar"
     (tmp_home / ".config/polybar").unlink()
-    file.replace(tmp_home / ".config/polybar")
+    move(file, tmp_home / ".config/polybar")
 
     result = runner.invoke(cli, ["patch"])
 
@@ -345,6 +338,29 @@ def test_rejoin_dir(tmp_home: Path, used_repo: Path, runner: CliRunner):
     ).read_text() == 'My remaps: \n vim vim.g.mapleader = " "'
 
 
+def test_fork_rejoin_parents(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    result = runner.invoke(cli, ["use", "linux-dev"])
+    assert_result(result, "use")
+
+    result = runner.invoke(cli, ["fork", ".config/nvim"])
+    assert_result(result, "fork")
+
+    result = runner.invoke(cli, ["fork", ".config"])
+    assert_result(result, "fork")
+
+    result = runner.invoke(cli, ["rejoin", ".config"])
+    assert_result(result, "rejoin")
+
+    result = runner.invoke(cli, ["use", "base"])
+    assert_result(result, "use")
+
+    result = runner.invoke(cli, ["use", "linux-dev"])
+    assert_result(result, "use")
+
+    assert not (used_repo / "files" / ".config").is_symlink()
+    assert not (used_repo / "files" / ".config" / "nvim").is_symlink()
+
+
 def test_vacate(tmp_home: Path, used_repo: Path, runner: CliRunner):
     result = runner.invoke(cli, ["use", "linux-dev"])
     assert result.exit_code == 0, f"Use failed: {result.output}"
@@ -413,24 +429,11 @@ def test_fork_symlink_err(tmp_home: Path, used_repo: Path, runner: CliRunner):
     result = runner.invoke(cli, ["fork", ".bashrc"])
     assert_result(result, "fork", tmp_home)
 
+    print(file_tree(tmp_home))
     # Now fork with symlink to different profile
     result = runner.invoke(cli, ["fork", ".bashrc", "--profile=mac", "--symlink"])
     assert result.exit_code != 0
     assert "The profile specified did not fork the selected path." in result.output
-
-
-# TODO: Change to test fork profile no symlink, verify contents
-def test_fork_no_profile(tmp_home: Path, used_repo: Path, runner: CliRunner):
-    """Test fork without specifying profile (uses current)"""
-    result = runner.invoke(cli, ["use", "linux-dev"])
-    assert_result(result, "use", tmp_home)
-
-    result = runner.invoke(cli, ["fork", ".bashrc"])
-    assert_result(result, "fork", tmp_home)
-
-    # Verify fork exists in current profile
-    fork_path = used_repo / "forks" / "linux-dev" / ".bashrc"
-    assert fork_path.exists()
 
 
 def test_rejoin_keep(tmp_home: Path, used_repo: Path, runner: CliRunner):
@@ -698,7 +701,7 @@ def test_git_sees_base_files(used_repo: Path, runner: CliRunner, tmp_home: Path)
     fork_path.write_text("forked")
 
     # Modify backup (base) version
-    backup_path = used_repo / ".tdm" / "base_backup" / ".bashrc"
+    backup_path = used_repo / ".tdm" / "base_files" / ".bashrc"
     backup_path.write_text("modified base")
 
     # Check git sees the modified base version

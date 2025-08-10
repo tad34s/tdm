@@ -4,6 +4,7 @@ from shutil import copy, rmtree
 import click
 
 from tdm.file_tree import create_tree, symlink_tree
+from tdm.fs_utils import move
 from tdm.print_to_user import error, success
 from tdm.state import State
 from tdm.symlink_utils import desymlink_dir
@@ -42,7 +43,7 @@ def kickout_ignored(curr_src_dir: Path, state: State):
             target_path.parent.mkdir(exist_ok=True, parents=True)
             if target_path.is_dir():
                 rmtree(target_path)
-            item.replace(target_path)
+            move(item, target_path)
         if item.is_dir():
             kickout_ignored(item, state)
 

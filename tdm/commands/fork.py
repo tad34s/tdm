@@ -1,8 +1,8 @@
-import shutil
 from pathlib import Path
 
 import click
 
+from tdm.fs_utils import copy_skip_present, delete
 from tdm.print_to_user import error, success
 from tdm.state import State
 from tdm.symlink_utils import symlink_and_backup_item
@@ -10,6 +10,8 @@ from tdm.symlink_utils import symlink_and_backup_item
 # TODO: Check that a fork is not inside a forked directory.
 
 # TODO: Maybe some other already forked stuff?
+
+# TODO: Inside the forked directory is a symlinked fork
 
 
 def was_forked(state: State, relative_path: Path) -> bool:
@@ -47,12 +49,15 @@ def fork(path: str, profile: str | None, symlink: bool = False):
 
     if state.fork_dir in resource.parents:
         relative_path = resource.relative_to(state.fork_dir)
-    if state.file_dir in resource.parents:
+    elif state.file_dir in resource.parents:
         relative_path = resource.relative_to(state.file_dir)
     else:
         relative_path = resource.relative_to(Path.home())
     dotfile_path = state.file_dir / relative_path
     not_yet_forked = not was_forked(state, relative_path)
+
+    if not dotfile_path.exists():
+        error("Not managing selected resource.")
 
     if (
         profile is not None
@@ -70,7 +75,7 @@ def fork(path: str, profile: str | None, symlink: bool = False):
 
         new_link = state.fork_dir / relative_path
         if new_link.exists():
-            new_link.unlink()
+            delete(new_link)
         new_link.parent.mkdir(exist_ok=True, parents=True)
         new_link.symlink_to(
             state.repo / state.FORK_DIR_NAME / profile / relative_path,
@@ -85,10 +90,8 @@ def fork(path: str, profile: str | None, symlink: bool = False):
             file_in_fork_dir = state.repo / state.FORK_DIR_NAME / profile / relative_path
 
         file_in_fork_dir.parent.mkdir(exist_ok=True, parents=True)
-        if dotfile_path.is_dir():
-            shutil.copytree(dotfile_path, file_in_fork_dir)
-        else:
-            shutil.copy(dotfile_path, file_in_fork_dir)
+        # copy keeping in mind already existing forks
+        copy_skip_present(dotfile_path, file_in_fork_dir)
 
     # mark that the whole dir is forked
     if dotfile_path.is_dir() and not_yet_forked:
@@ -99,7 +102,7 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         state.fork_dir / relative_path,
         state.fork_dir,
         state.file_dir,
-        state.get_repo_data_dir(create=True) / state.BASE_BACKUP_DIR,
+        state.fork_backup_location(create=True),
     )
 
     success(f"forked \033[3m{path}\033[0m.")

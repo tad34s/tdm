@@ -1,11 +1,11 @@
-import shutil
 from pathlib import Path
 
 import click
 
+from tdm.fs_utils import delete
 from tdm.print_to_user import error, success
 from tdm.state import State
-from tdm.symlink_utils import desymlink_and_recover_item
+from tdm.symlink_utils import desymlink_path
 
 
 @click.command
@@ -15,6 +15,15 @@ def rejoin(path: str, keep: bool):
     """Deletes the fork and replaces it witht the base configuration.
     If keep is on, it will replace the base with the forked instead. But will still delete the fact that the file is forked for this profile.
     """
+    # We do not maintain information on the forked files.
+    # -> If a parent of a file is forked we forget that the forked of the file took place.
+    #  - meaning that if we rejoin the parent the file will no longer be forked
+    #  -  TODO: add warning that the fork has a child thats forked
+    #  -  TODO: same behavior for dirs
+
+    # TODO: test rejoining whole dir - no removing from forked dirs
+    #   - test and handle rejoining parent while child is forked
+
     resource = Path(path).resolve()
     if not resource.exists():
         error("Resource does not exist.")
@@ -35,24 +44,21 @@ def rejoin(path: str, keep: bool):
     if not dotfile_path.exists():
         error("Not managing selected resource.")
 
-    fork_file = state.fork_dir / relative_path
+    fork_path = state.fork_dir / relative_path
 
-    if not fork_file.exists():
+    if not fork_path.exists():
         error("Resource was not forked.")
 
-    if keep:
-        fork_file.replace(state.get_repo_data_dir() / state.BASE_BACKUP_DIR / relative_path)
+    backup_location = state.fork_dir if keep else state.get_repo_data_dir() / state.FORK_BACKUP_DIR
 
     # stop fork
-    desymlink_and_recover_item(
-        dotfile_path, state.file_dir, state.get_repo_data_dir() / state.BASE_BACKUP_DIR
-    )
+    desymlink_path(fork_path, state.fork_dir, state.file_dir, backup_location)
+    if dotfile_path.is_dir():
+        state.remove_forked_dir(str(relative_path))
 
     # delete fork
-    if fork_file.exists():
-        if fork_file.is_dir():
-            shutil.rmtree(fork_file)
-        else:
-            fork_file.unlink()
+    # when keep is True, the backup location is fork dir, which results in moving the file from fork dir -> no longer exists
+    if fork_path.exists():
+        delete(fork_path)
 
     success(f"rejoined \033[3m{path}\033[0m.")

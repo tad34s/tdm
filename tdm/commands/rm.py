@@ -1,12 +1,15 @@
 from pathlib import Path
 
 import click
-from git import rmtree
 
-from tdm.fs_utils import remove_from_set_file
+from tdm.fs_utils import delete
 from tdm.print_to_user import error, success
 from tdm.state import State
-from tdm.symlink_utils import desymlink_and_recover_item
+from tdm.symlink_utils import desymlink_path
+
+# TODO:
+# - rm on child of added dir
+# -
 
 
 @click.command
@@ -25,21 +28,15 @@ def rm(path: str, keep: bool):
 
     relative_path = state.get_relative_path(resource)
     dotfile_path = state.file_dir / relative_path
-    target_path = Path.home() / relative_path
 
     if not dotfile_path.exists():
         error("Selected resource not managed.")
         return
 
-    backup = state.get_app_data_dir(create=True) / state.BACKUP_DIR / relative_path
+    backup_location = state.file_dir if keep else state.backup_location()
 
     # desymlink
-    if not keep:
-        desymlink_and_recover_item(
-            target_path, Path.home(), state.get_app_data_dir() / state.BACKUP_DIR
-        )
-    else:
-        desymlink_and_recover_item(target_path, Path.home(), state.file_dir)
+    desymlink_path(dotfile_path, state.file_dir, Path.home(), backup_location)
 
     if dotfile_path.is_dir():
         state.remove_added_dir(str(relative_path))
@@ -50,9 +47,9 @@ def rm(path: str, keep: bool):
             if not forked_item.exists():
                 continue
 
-            forked_dirs_file = fork_dir / state.FORKED_DIRS_FILE
-            remove_from_set_file(forked_dirs_file, str(relative_path))
-            forked_item.unlink()
+            if str(relative_path) in state.forked_dirs:
+                state.remove_forked_dir(str(relative_path))
+            delete(forked_item)
 
     else:
         # delete forks
@@ -63,9 +60,6 @@ def rm(path: str, keep: bool):
             forked_item.unlink()
 
     if dotfile_path.exists():
-        if dotfile_path.is_dir():
-            rmtree(dotfile_path)
-        else:
-            dotfile_path.unlink()
+        delete(dotfile_path)
 
     success(f"removed \033[3m{path}\033[0m.")

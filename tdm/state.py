@@ -2,12 +2,10 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from git import rmtree
-
 from tdm.config import Config
-from tdm.fs_utils import add_to_set_file, read_set_file, remove_from_set_file
+from tdm.fs_utils import add_to_set_file, delete, read_set_file, remove_from_set_file
 from tdm.print_to_user import error
-from tdm.symlink_utils import desymlink_and_recover_item, desymlink_dir, symlink_and_backup_item
+from tdm.symlink_utils import desymlink_dir, desymlink_fork, symlink_and_backup_item
 
 APP_NAME = "tdm"
 
@@ -15,7 +13,7 @@ APP_NAME = "tdm"
 class State:
     FORK_DIR_NAME = "forks"
     FILE_DIR_NAME = "files"
-    BASE_BACKUP_DIR = "base_backup"
+    FORK_BACKUP_DIR = "base_files"
     BACKUP_DIR = "original_files"
     ADDED_DIRS = "added_dirs"
     REPO_DATA_DIR = ".tdm"
@@ -46,8 +44,25 @@ class State:
         added_dirs_file = self.repo / self.REPO_DATA_DIR / self.ADDED_DIRS
         return read_set_file(added_dirs_file)
 
+    def backup_location(self, create: bool = False) -> Path:
+        path = self.get_app_data_dir() / self.BACKUP_DIR
+        if create:
+            path.mkdir(exist_ok=True, parents=True)
+        return path
+
+    def fork_backup_location(self, create: bool = False) -> Path:
+        path = self.get_repo_data_dir() / self.FORK_BACKUP_DIR
+        if create:
+            path.mkdir(exist_ok=True, parents=True)
+        return path
+
     def add_forked_dir(self, forked_dir: str) -> None:
         forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
+
+        print("Forked dirs: ", self.forked_dirs)
+        for already_forked_dir in self.forked_dirs:
+            if already_forked_dir.startswith(forked_dir):  # is a child
+                remove_from_set_file(forked_dirs_file, already_forked_dir)
         assert add_to_set_file(forked_dirs_file, forked_dir)
 
     def remove_forked_dir(self, forked_dir: str) -> None:
@@ -109,13 +124,11 @@ class State:
         state_file.unlink()
 
     def clean_app_dir(self) -> None:
-        app_dir = self.get_app_data_dir(create=True)
+        app_dir = self.get_app_data_dir()
         state_file = app_dir / self.STATE_FILE_NAME
         backup_dir = app_dir / self.BACKUP_DIR
-        if state_file.exists():
-            state_file.unlink()
-        if backup_dir.exists():
-            shutil.rmtree(backup_dir)
+        delete(state_file)
+        delete(backup_dir)
 
     def get_repo_data_dir(self, create=False) -> Path:
         data_dir = self.repo / self.REPO_DATA_DIR
@@ -175,7 +188,7 @@ class State:
                         item,
                         self.fork_dir,
                         self.file_dir,
-                        self.get_repo_data_dir(create=True) / self.BASE_BACKUP_DIR,
+                        self.get_repo_data_dir(create=True) / self.FORK_BACKUP_DIR,
                     )
                 elif item.is_dir(follow_symlinks=True):
                     recursively_symlink_forks(item, forked_dirs)
@@ -192,10 +205,10 @@ class State:
         def recursively_desymlink_forks(src_dir: Path) -> None:
             for item in src_dir.iterdir():
                 if item.is_symlink():
-                    desymlink_and_recover_item(
+                    desymlink_fork(
                         item,
                         self.file_dir,
-                        self.get_repo_data_dir(create=True) / self.BASE_BACKUP_DIR,
+                        self.get_repo_data_dir(create=True) / self.FORK_BACKUP_DIR,
                     )
                 elif item.is_dir(follow_symlinks=True):
                     recursively_desymlink_forks(item)
@@ -215,14 +228,15 @@ class State:
         )
         symlink_and_backup_tree(root_file_node, self)
 
-    def desymlink(self) -> None:
+    def desymlink(self, keep: bool = False) -> None:
         """Desymlink all links made by the current state"""
 
+        backup_location = self.file_dir if keep else self.backup_location()
         desymlink_dir(
             self.file_dir,
             self.file_dir,
             Path.home().expanduser(),
-            self.get_app_data_dir(create=True) / self.BACKUP_DIR,
+            backup_location,
         )
 
         self.unapply_forks()
@@ -230,10 +244,7 @@ class State:
     def remove_backup(self, relative_path: Path):
         backup = self.get_app_data_dir() / self.BACKUP_DIR / relative_path
         if backup.exists():
-            if backup.is_dir():
-                rmtree(backup)
-            else:
-                backup.unlink()
+            delete(backup)
 
     def copy_dir_to_repo(self, real_dir: Path) -> None:
         for item in real_dir.iterdir():
