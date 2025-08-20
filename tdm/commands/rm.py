@@ -7,10 +7,6 @@ from tdm.print_to_user import error, success
 from tdm.state import State
 from tdm.symlink_utils import desymlink_path
 
-# TODO:
-# - rm on child of added dir
-# -
-
 
 @click.command
 @click.argument("path")

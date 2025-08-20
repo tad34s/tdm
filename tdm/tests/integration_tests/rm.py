@@ -7,6 +7,20 @@ from tdm.tests.fixtures import *
 from tdm.tests.fixtures import FILES
 from tdm.tests.utils import assert_result, check_files
 
+# NOTE: Rm
+# - Will delete the dotfile in repo
+# - For the symlink it can either:
+#   - Repalce with backup --backup
+#   - Replace with removed dotfile --keep
+#   - Do nothing - default
+
+# --> Ds
+# - Will only desymlink
+# - For the symlink it can either:
+#   - Repalce with backup
+#   - Replace with removed dotfile --keep
+#   - Do nothing
+
 
 def test_rm_keep(tmp_home: Path, used_repo, runner: CliRunner):
     file = tmp_home / ".bashrc"
@@ -25,6 +39,15 @@ def test_rm_keep(tmp_home: Path, used_repo, runner: CliRunner):
     result = runner.invoke(cli, ["rm", "-b", ".bashrc"])
     assert_result(result, "rm", tmp_home)
     assert "modified bash" in file.read_text()
+
+    result = runner.invoke(cli, ["add", ".bashrc"])
+    assert_result(result, "add", tmp_home)
+
+    # testing doing nothing on default
+    result = runner.invoke(cli, ["rm", ".bashrc"])
+    assert_result(result, "rm", tmp_home)
+    assert not (tmp_home / ".bashrc").exists()
+    assert not (used_repo / "files" / ".bashrc").exists()
 
 
 def test_rm_partially_symlinked(tmp_home, used_repo, runner: CliRunner):

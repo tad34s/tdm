@@ -1,6 +1,6 @@
 
 test:
-	uv run pytest -v tdm/tests/integration_tests.py
+	uv run pytest -v tdm/tests/integration_tests/*
 
 make exe:
 	uv run pyinstaller --name tdm --onefile --specpath bin/ --noconfirm tdm/__main__.py

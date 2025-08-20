@@ -8,6 +8,13 @@ from tdm.tests.fixtures import *
 from tdm.tests.fixtures import FILES
 from tdm.tests.utils import assert_result, check_files, file_tree
 
+# NOTE: Patch
+# Patch shoudl do all the following things
+# - Add files that were added in an added directory
+# - Remove ignored files that somehow ended up in a symlinked dir
+# - Recalculate symlink structrure
+#   - if some links were deleted, it will relink them
+
 
 def test_patch(tmp_home: Path, used_repo: Path, runner: CliRunner):
     new_dir = tmp_home / ".config" / "nvim" / "plugins"
@@ -31,6 +38,7 @@ def test_patch_kickout_dir(tmp_home: Path, used_repo: Path, runner: CliRunner):
     assert_result(result, "Patch", tmp_home)
 
     # now kickout where the target is populated somehow
+    # testng if it can kickout directories
     (tmp_home / ".config/nvim/.lazy-lock.json").unlink()
     (tmp_home / ".config/nvim/.lazy-lock.json").mkdir()
     (tmp_home / ".config/nvim/.lazy-lock.json/hi").touch()
@@ -48,6 +56,7 @@ def test_patch_with_ignore(tmp_home: Path, used_repo: Path, runner: CliRunner):
     (new_dir / "floaterminal.lua").touch()
     (new_dir / ".lazy-lock.json").touch()
     result = runner.invoke(cli, ["patch"])
+    # should recalculate the symlink structure correctly
     assert_result(result, "Patch")
     print(file_tree(tmp_home))
     assert not (new_dir).is_symlink()
@@ -58,11 +67,13 @@ def test_patch_new_ignore(tmp_home: Path, used_repo: Path, runner: CliRunner):
     new_dir = tmp_home / ".config" / "nvim" / "plugins"
     new_dir.mkdir()
     (new_dir / "floaterminal.lua").touch()
-    (new_dir / "lazy-lock.json").touch()
+    (new_dir / "other_file").touch()
     result = runner.invoke(cli, ["patch"])
-    # assert_result(result, "Patch")
+
     assert (new_dir).is_symlink()
-    (new_dir / "lazy-lock.json").rename(new_dir / ".lazy-lock.json")
+    # changin already added file to ignored files
+    (new_dir / "other_file").rename(new_dir / ".lazy-lock.json")
+    # should correctly recalculate the symlink structure
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch")
     assert not (new_dir).is_symlink()

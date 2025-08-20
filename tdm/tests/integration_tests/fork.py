@@ -6,6 +6,19 @@ from tdm.cli import cli
 from tdm.tests.fixtures import *
 from tdm.tests.utils import assert_result
 
+# Fork should work as follows:
+# - Fork takes the current version of the file in the base profile and makes it a different file for the current profile
+# - When the base profile is active you cannot fork
+# - When forking:
+#   - A child of a forked dir - does nothing (already forked) returns error
+#   - A parent of a forked dir - warns that a the child is forked
+#                              - forks the rest of the files
+#                              - removes child from forked_dirs
+# - If a --profile is passed, the fork will copy the file from profile specified instead
+# - If the file specified is already forked it will do a warning and then simply replace the file
+# - --symlink can be passes only when profile is specified. Instead of copying will create a symlink.
+#   - Now the file is kept the same between the two profiles, but different from base.
+
 
 def test_fork_file(tmp_home: Path, used_repo: Path, runner: CliRunner):
     result = runner.invoke(cli, ["use", "linux-dev"])
@@ -197,6 +210,15 @@ def test_forking_parent(tmp_home: Path, used_repo: Path, runner: CliRunner):
     assert_result(result, "fork")
     assert "Warning" in result.output
     assert (tmp_home / ".config/nvim/lua").is_symlink()
+
+
+def test_fork_sibling_dirs(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    result = runner.invoke(cli, ["use", "linux-dev"])
+    result = runner.invoke(cli, ["fork", ".config/nvim"])
+    assert_result(result, "Fork", tmp_home)
+
+    result = runner.invoke(cli, ["fork", ".config/polybar"])
+    assert_result(result, "Fork", tmp_home)
 
 
 def test_forking_already_forked(tmp_home: Path, used_repo: Path, runner: CliRunner):
