@@ -20,7 +20,7 @@ def update():
         # Execute git with captured arguments
         result = subprocess.run(["git", "pull"], check=False, cwd=state.repo)
     except Exception as e:
-        state.apply_forks()  # cleanup
+        state.symlink()  # cleanup
         error(f"Failed to pull from git: {e}")
         return
 
