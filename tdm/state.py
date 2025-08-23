@@ -308,7 +308,6 @@ class State:
     def desymlink(self, keep: bool = False) -> None:
         """Desymlink all links made by the current state"""
 
-        print(keep)
         backup_location = self.file_dir if keep else self.backup_location()
         desymlink_dir(self.file_dir, self.file_dir, Path.home(), backup_location, copy=keep)
 
