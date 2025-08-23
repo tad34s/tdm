@@ -58,6 +58,13 @@ def delete(path: Path) -> None:
         path.unlink()
 
 
+def copy(src: Path, dest: Path) -> None:
+    if src.is_dir():
+        shutil.copytree(src, dest, dirs_exist_ok=True)
+    else:
+        shutil.copy2(src, dest)
+
+
 def move(src: Path, dest: Path) -> None:
     shutil.move(src, dest)
 
@@ -84,8 +91,41 @@ def copy_skip_present(src: Path, dest: Path) -> None:
             else:
                 recursively_copy(item, target)
 
-    if src.is_file() and not dest.exists():
+    # if src.is_file() and not dest.exists():
+    #     dest.parent.mkdir(exist_ok=True, parents=True)
+    #     shutil.copy2(src, dest)
+    # else:
+    #     recursively_copy(src, dest)
+
+    if not dest.exists():
         dest.parent.mkdir(exist_ok=True, parents=True)
-        shutil.copy2(src, dest)
+        copy(src, dest)
     else:
         recursively_copy(src, dest)
+
+
+def move_skip_present(src: Path, dest: Path) -> None:
+    """Move from src to dest.
+    If the src or a child of the src is already at the destination we skip it (this part of destination is unchanged) the srd will be then deleted.
+    """
+
+    def recursively_move(src_dir: Path, dest_dir: Path):
+        for item in src_dir.iterdir():
+            relative_path = item.relative_to(src_dir)
+            target = dest_dir / relative_path
+            if item.is_file():
+                if target.exists():
+                    item.unlink()
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(item, target)
+            else:
+                recursively_move(item, target)
+
+    if not dest.exists() or src.is_file():
+        dest.parent.mkdir(exist_ok=True, parents=True)
+        shutil.move(src, dest)
+    else:
+        recursively_move(src, dest)
+        if src.exists():
+            delete(src)

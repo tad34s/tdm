@@ -21,3 +21,14 @@ def print_git(msg: str, error=False) -> None:
     else:
         print("\033[38;2;240;80;50mgit 󰊢\033[0m:")
         print(indent + msg.replace("\n", f"\n{indent}"))  # noqa: T201
+
+
+def warning(msg: str, ask_continue: bool = False) -> None:
+    print("\033[33mWarning\033[0m: " + msg)
+    if ask_continue:
+        output = input("Do you wish to continue? [y/N] ")
+        if output.strip() == "y" or output.strip() == "yes":
+            print()
+            return
+        else:
+            sys.exit(2)

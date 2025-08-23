@@ -17,12 +17,7 @@ def rejoin(path: str, keep: bool):
     """
     # We do not maintain information on the forked files.
     # -> If a parent of a file is forked we forget that the forked of the file took place.
-    #  - meaning that if we rejoin the parent the file will no longer be forked
-    #  -  TODO: add warning that the fork has a child thats forked
-    #  -  TODO: same behavior for dirs
-
-    # TODO: test rejoining whole dir - no removing from forked dirs
-    #   - test and handle rejoining parent while child is forked
+    #  - meaning that if we rejoin the parent, the child will no longer be forked
 
     resource = Path(path).resolve()
     if not resource.exists():

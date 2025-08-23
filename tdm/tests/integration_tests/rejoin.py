@@ -105,13 +105,13 @@ def test_fork_rejoin_parents(tmp_home: Path, used_repo: Path, runner: CliRunner)
     result = runner.invoke(cli, ["use", "linux-dev"])
     assert_result(result, "use")
 
-    result = runner.invoke(cli, ["fork", ".config/nvim"])
+    result = runner.invoke(cli, ["fork", ".config/nvim/lua"])
     assert_result(result, "fork")
 
-    result = runner.invoke(cli, ["fork", ".config"])
+    result = runner.invoke(cli, ["fork", ".config/nvim"], input="y\n")
     assert_result(result, "fork")
 
-    result = runner.invoke(cli, ["rejoin", ".config"])
+    result = runner.invoke(cli, ["rejoin", ".config/nvim"])
     assert_result(result, "rejoin")
 
     result = runner.invoke(cli, ["use", "base"])
@@ -120,8 +120,8 @@ def test_fork_rejoin_parents(tmp_home: Path, used_repo: Path, runner: CliRunner)
     result = runner.invoke(cli, ["use", "linux-dev"])
     assert_result(result, "use")
 
-    assert not (used_repo / "files" / ".config").is_symlink()
-    assert not (used_repo / "files" / ".config" / "nvim").is_symlink()
+    assert not (used_repo / "files" / ".config" / "nvim ").is_symlink()
+    assert not (used_repo / "files" / ".config" / "nvim" / "lua").is_symlink()
 
 
 def test_rejoin_keep(tmp_home: Path, used_repo: Path, runner: CliRunner):

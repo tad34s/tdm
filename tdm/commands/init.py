@@ -26,7 +26,7 @@ include = [".gitconfig"] # overriding exclusion
 
 [mac]
 bootstrap = "mac.sh"   # overriding
-exclude = ["picom.ini"] # adding to exclusion
+exclude = ["picom.conf"] # adding to exclusion
 
 [server] 
 use-only = [  # if specifies will only use files or directories provided here

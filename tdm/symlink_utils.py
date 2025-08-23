@@ -1,10 +1,13 @@
 from os import error
 from pathlib import Path
 
-from tdm.fs_utils import clean_parents, delete, move
+from tdm.fs_utils import clean_parents, delete, move, move_skip_present
 
 
 def symlink_item(item: Path, original_base: Path, new_base: Path) -> None:
+    """Create new symlink in the new_base pointing to the item in the original_base.
+    Will delete the path in the new base if exists.
+    """
     relative_path = item.relative_to(original_base)
     target_path = new_base / relative_path
     if target_path.exists():
@@ -28,7 +31,7 @@ def symlink_and_backup_item(
         else:
             backup_dest = backup_location / relative_path
             backup_dest.parent.mkdir(exist_ok=True, parents=True)
-            move(target_path, backup_dest)
+            move_skip_present(target_path, backup_dest)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.symlink_to(item, target_is_directory=item.is_dir())
 
@@ -39,6 +42,13 @@ def desymlink_path(
     target_path_base: Path,
     backup_location: Path | None = None,
 ) -> None:
+    """
+    Desymlink the src path, if it has children also desymlink them.
+    Desymlinking a path means:
+    1. Find the symlink location, by swapping src_dir_base with target_base
+    2. If there exists a symlink it will delete it. If backup path is provided it will replace it with the backup instead.
+    """
+
     if not src_path.exists():
         error("Tried to desymlinked a not managed file. Aborting...")
 
@@ -65,6 +75,10 @@ def desymlink_dir(
     target_location_base: Path,
     backup_location: Path | None = None,
 ) -> None:
+    """Go through the src dir. For each entry:
+    1. Find the symlink location, by swapping src_dir_base with target_base
+    2. If there exists a symlink it will delete it. If backup path is provided it will replace it with the backup instead.
+    """
     relative_path = src_dir.relative_to(src_dir_base)
     target = target_location_base / relative_path
     if target.is_symlink():

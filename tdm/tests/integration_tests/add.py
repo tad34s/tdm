@@ -40,7 +40,7 @@ def test_adding_child(tmp_home: Path, used_repo: Path, runner: CliRunner):
     """Test adding a child of managed dir"""
     result = runner.invoke(cli, ["add", ".config/nvim/lua"])
     assert result.exit_code != 0
-    assert "Already managing parent" in result.output
+    assert "Already managing selected resource" in result.output
 
 
 def test_add_parent(tmp_home: Path, used_repo: Path, runner: CliRunner):
@@ -60,7 +60,7 @@ def test_add_and_remove_parent(tmp_home: Path, used_repo: Path, runner: CliRunne
     new_contents = "new_contents\n"
 
     # this change should not change the backup
-    (tmp_home / ".bashrc").write_text(new_contents)
+    (tmp_home / ".config" / "nvim" / "lua" / "user" / "opts.lua").write_text(new_contents)
 
     result = runner.invoke(cli, ["add", ".config"], input="y\n")
     assert_result(result, "add", tmp_home)
@@ -71,12 +71,10 @@ def test_add_and_remove_parent(tmp_home: Path, used_repo: Path, runner: CliRunne
     # deleted the record of child being added
     assert "nvim" not in (tmp_home / "dotfiles" / ".tdm" / "added_dirs").read_text()
 
-    result = runner.invoke(cli, ["rm", ".config", "-b"])
+    result = runner.invoke(cli, ["rm", ".config"])
     assert_result(result, "rm", tmp_home)
-    # .bashrc should be still the same
+    assert not (tmp_home / ".config").is_symlink()
     check_files(files, tmp_home)
-    for file in files:
-        assert not (tmp_home / file.path).is_symlink()
 
 
 def test_add_ignored(tmp_home: Path, used_repo: Path, runner: CliRunner):
@@ -84,7 +82,7 @@ def test_add_ignored(tmp_home: Path, used_repo: Path, runner: CliRunner):
     print(result.output)
     assert result.exit_code != 0
 
-    result = runner.invoke(cli, ["rm", ".config/nvim/", "-b"])
+    result = runner.invoke(cli, ["rm", ".config/nvim/"])
 
     result = runner.invoke(cli, ["add", ".config/nvim/.lazy-lock.json"])
     print(result.output)
@@ -95,23 +93,36 @@ def test_add_excluded(tmp_home: Path, used_repo: Path, runner: CliRunner):
     result = runner.invoke(cli, ["use", "mac"])
     assert_result(result, "use")
 
-    result = runner.invoke(cli, ["rm", ".config/picom.ini", "-b"])
-    assert_result(result, "rm")
-    assert not (used_repo / "files" / ".config/picom.ini").exists()
+    result = runner.invoke(cli, ["rm", ".config/picom.conf"])
+    assert_result(result, "rm", tmp_home)
+    assert not (used_repo / "files" / ".config/picom.conf").exists()
 
-    result = runner.invoke(cli, ["add", ".config/picom.ini"], input="n\n")
+    result = runner.invoke(cli, ["add", ".config/picom.conf"], input="n\n")
     print(result.output)
     assert result.exit_code != 0
 
-    result = runner.invoke(cli, ["add", ".config/picom.ini"], input="y\n")
+    result = runner.invoke(cli, ["add", ".config/picom.conf"], input="y\n")
     assert_result(result, "add")
 
-    assert not (tmp_home / ".config/picom.ini").exists()
-    assert (used_repo / "files" / ".config/picom.ini").exists()
+    assert not (tmp_home / ".config/picom.conf").is_symlink()
+    assert (used_repo / "files" / ".config/picom.conf").exists()
 
 
-# TODO:
-# def test_add_excluded_parent_of_added(tmp_home: Path, used_repo: Path, runner: CliRunner):
+def test_add_excluded_parent_of_added(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    (tmp_home / ".config" / "new_dir").mkdir()
+    (tmp_home / ".config" / "new_dir" / "picom.conf").touch()
+    (tmp_home / ".config" / "new_dir" / "dotfile").touch()
+    print(file_tree(tmp_home))
+    result = runner.invoke(cli, ["use", "mac"])
+    assert_result(result, "use")
+
+    result = runner.invoke(cli, ["add", ".config/new_dir"])
+    assert_result(result, "add", tmp_home)
+
+    assert (used_repo / "files" / ".config" / "new_dir" / "picom.conf").exists()
+    assert not (tmp_home / ".config" / "new_dir" / "picom.conf").is_symlink()
+    assert (tmp_home / ".config" / "new_dir" / "dotfile").is_symlink()
+    assert (tmp_home / ".config" / "new_dir" / "picom.conf").exists()
 
 
 def test_add_and_remove_parent_with_forks(tmp_home: Path, used_repo: Path, runner: CliRunner):

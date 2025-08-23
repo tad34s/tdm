@@ -1,9 +1,10 @@
 import shutil
 import subprocess
 from pathlib import Path
+from shutil import rmtree
 
 from tdm.config import Config
-from tdm.fs_utils import add_to_set_file, delete, read_set_file, remove_from_set_file
+from tdm.fs_utils import add_to_set_file, delete, move, read_set_file, remove_from_set_file
 from tdm.print_to_user import error
 from tdm.symlink_utils import desymlink_dir, desymlink_fork, symlink_and_backup_item
 
@@ -11,6 +12,7 @@ APP_NAME = "tdm"
 
 
 class State:
+    BASE_PROFILE = "base"
     FORK_DIR_NAME = "forks"
     FILE_DIR_NAME = "files"
     FORK_BACKUP_DIR = "base_files"
@@ -34,6 +36,9 @@ class State:
     def fork_dir(self) -> Path:
         return self.repo / self.FORK_DIR_NAME / self.profile
 
+    def fork_dir_p(self, profile: str) -> Path:
+        return self.repo / self.FORK_DIR_NAME / profile
+
     @property
     def forked_dirs(self) -> set[str]:
         forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
@@ -43,6 +48,12 @@ class State:
     def added_dirs(self) -> set[str]:
         added_dirs_file = self.repo / self.REPO_DATA_DIR / self.ADDED_DIRS
         return read_set_file(added_dirs_file)
+
+    @property
+    def profile_fork_dirs(self):
+        """Yields: Paths to directories where each profile stores their forks."""
+        for fork_dir in (self.repo / self.FORK_DIR_NAME).iterdir():
+            yield fork_dir
 
     def backup_location(self, create: bool = False) -> Path:
         path = self.get_app_data_dir() / self.BACKUP_DIR
@@ -59,15 +70,35 @@ class State:
     def add_forked_dir(self, forked_dir: str) -> None:
         forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
 
-        print("Forked dirs: ", self.forked_dirs)
-        for already_forked_dir in self.forked_dirs:
-            if already_forked_dir.startswith(forked_dir):  # is a child
-                remove_from_set_file(forked_dirs_file, already_forked_dir)
         assert add_to_set_file(forked_dirs_file, forked_dir)
 
     def remove_forked_dir(self, forked_dir: str) -> None:
         forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
         assert remove_from_set_file(forked_dirs_file, forked_dir)
+
+    def remove_children_in_forked_dir(self, forked_dir: str) -> None:
+        """Goes through each profiles forks and removes any children of forked_dir from the
+        forked_dirs file.
+        """
+        for profile_fork_dir in self.profile_fork_dirs:
+            forked_dirs_file = profile_fork_dir / self.FORKED_DIRS_FILE
+            for str_path in read_set_file(forked_dirs_file):
+                if str_path.startswith(forked_dir):  # is a child
+                    remove_from_set_file(forked_dirs_file, str_path)
+
+    def delete_forks(self, relative_fork_path: Path) -> None:
+        """Delete all versions of this dotfile/dir for each profile it is present in.
+        Checks if the fork exists before deleting.
+        """
+
+        for profile_fork_dir in self.profile_fork_dirs:
+            forked_item = profile_fork_dir / relative_fork_path
+            if not forked_item.exists():
+                continue
+            delete(forked_item)
+
+            # if str(relative_fork_path) in self.forked_dirs:
+            #     self.remove_forked_dir(str(relative_fork_path))
 
     def add_added_dir(self, added_dir: str) -> None:
         added_dirs_file = self.get_repo_data_dir(create=True) / self.ADDED_DIRS
@@ -76,6 +107,11 @@ class State:
     def remove_added_dir(self, added_dir: str) -> None:
         added_dirs_file = self.get_repo_data_dir(create=True) / self.ADDED_DIRS
         assert remove_from_set_file(added_dirs_file, added_dir)
+
+    def remove_children_in_added_dir(self, added_dir: str) -> None:
+        for str_path in self.added_dirs:
+            if str_path.startswith(added_dir):  # is a child
+                self.remove_added_dir(str_path)
 
     @classmethod
     def current(cls) -> "State | None":
@@ -94,22 +130,21 @@ class State:
             return None
         return state
 
-    def is_ignored(self, path: Path) -> bool:
-        return any(x in str(path) for x in self.config.ignore)
+    def is_ignored(self, relative_path: Path) -> bool:
+        return any(x in str(relative_path) for x in self.config.ignore)
 
-    def is_excluded(self, path: Path) -> bool:
-        return any(x in str(path) for x in self.config.exclude)
+    def is_excluded(self, relative_path: Path) -> bool:
+        return any(x in str(relative_path) for x in self.config.exclude)
 
     def get_relative_path(self, resource: Path) -> Path:
-        if self.repo in resource.parents:
-            dotfile_path = resource
+        if self.fork_backup_location() in resource.parents:
+            relative_path = resource.relative_to(self.fork_backup_location())
+        elif self.fork_dir in resource.parents:
+            relative_path = resource.relative_to(self.fork_dir)
+        elif self.file_dir in resource.parents:
+            relative_path = resource.relative_to(self.file_dir)
         else:
             relative_path = resource.relative_to(Path.home())
-            dotfile_path = self.file_dir / relative_path
-            if not dotfile_path.exists():
-                error("Not managing selected resource.")
-
-        relative_path = dotfile_path.relative_to(self.file_dir)
         return relative_path
 
     def save(self) -> None:
@@ -129,6 +164,46 @@ class State:
         backup_dir = app_dir / self.BACKUP_DIR
         delete(state_file)
         delete(backup_dir)
+
+    def is_managed(self, relative_path: Path) -> bool:
+        dotfile_path = self.file_dir / relative_path
+
+        if not dotfile_path.exists():
+            return False
+
+        if dotfile_path.is_file():
+            return True
+
+        if dotfile_path.is_dir():
+            if any(str(relative_path).startswith(x) for x in self.added_dirs):
+                return True
+            else:
+                return False
+
+        assert False, "Should be unreachable"
+
+    def is_forked(self, relative_path: Path) -> bool:
+        for profile_fork_dir in self.profile_fork_dirs:
+            forked_dirs_file = profile_fork_dir / self.FORKED_DIRS_FILE
+            forked_dirs = read_set_file(forked_dirs_file)
+            if str(relative_path) in forked_dirs:
+                return True
+
+            for forked_dir in forked_dirs:
+                if str(relative_path).startswith(forked_dir):
+                    return True
+
+        return False
+
+    def is_forked_by_current_profile(self, relative_path: Path) -> bool:
+        if str(relative_path) in self.forked_dirs:
+            return True
+
+        for forked_dir in self.forked_dirs:
+            if str(relative_path).startswith(forked_dir):
+                return True
+
+        return False
 
     def get_repo_data_dir(self, create=False) -> Path:
         data_dir = self.repo / self.REPO_DATA_DIR
@@ -257,3 +332,15 @@ class State:
                 dest_dotfiles = self.file_dir / relative_path
                 dest_dotfiles.parent.mkdir(exist_ok=True, parents=True)
                 shutil.copy(item, dest_dotfiles)
+
+    def kickout_ignored(self, curr_src_dir: Path):
+        for item in curr_src_dir.iterdir():
+            if self.is_ignored(item):
+                relative_path = item.relative_to(self.file_dir)
+                target_path = Path.home() / relative_path
+                target_path.parent.mkdir(exist_ok=True, parents=True)
+                if target_path.is_dir():
+                    rmtree(target_path)
+                move(item, target_path)
+            if item.is_dir():
+                self.kickout_ignored(item)

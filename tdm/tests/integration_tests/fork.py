@@ -6,6 +6,7 @@ from tdm.cli import cli
 from tdm.tests.fixtures import *
 from tdm.tests.utils import assert_result
 
+# NOTE: Fork
 # Fork should work as follows:
 # - Fork takes the current version of the file in the base profile and makes it a different file for the current profile
 # - When the base profile is active you cannot fork
@@ -14,7 +15,7 @@ from tdm.tests.utils import assert_result
 #   - A parent of a forked dir - warns that a the child is forked
 #                              - forks the rest of the files
 #                              - removes child from forked_dirs
-# - If a --profile is passed, the fork will copy the file from profile specified instead
+# - If a --profile is passed, the fork will copy the file from profile specified instead, will ask if is ok to repalce the current fork if exists.
 # - If the file specified is already forked it will do a warning and then simply replace the file
 # - --symlink can be passes only when profile is specified. Instead of copying will create a symlink.
 #   - Now the file is kept the same between the two profiles, but different from base.
@@ -80,7 +81,9 @@ def test_fork_symlink(tmp_home: Path, used_repo: Path, runner: CliRunner):
     assert_result(result, "use", tmp_home)
 
     # Now fork with symlink to different profile
-    result = runner.invoke(cli, ["fork", ".bashrc", "--profile=linux-dev", "--symlink"])
+    result = runner.invoke(
+        cli, ["fork", ".bashrc", "--profile=linux-dev", "--symlink"], input="y\n"
+    )
     assert_result(result, "fork with symlink", tmp_home)
 
     # Verify symlink was created
@@ -100,9 +103,12 @@ def test_fork_symlink_err(tmp_home: Path, used_repo: Path, runner: CliRunner):
 
     print(file_tree(tmp_home))
     # Now fork with symlink to different profile
-    result = runner.invoke(cli, ["fork", ".bashrc", "--profile=mac", "--symlink"])
+    result = runner.invoke(cli, ["fork", ".bashrc", "--profile=mac", "--symlink"], input="y\n")
     assert result.exit_code != 0
     assert "The profile specified did not fork the selected path." in result.output
+
+    result = runner.invoke(cli, ["fork", ".bashrc", "--symlink"])
+    assert result.exit_code != 0
 
 
 def test_fork_non_existent_resource(tmp_home: Path, used_repo: Path, runner: CliRunner):
@@ -140,24 +146,28 @@ def test_forking_child(tmp_home: Path, used_repo: Path, runner: CliRunner):
     assert "Error" in result.output
 
     result = runner.invoke(cli, ["use", "linux-dev"])
-
     # warning, will just replace the fork
     # passing the profile variable means we are changing the content of a fork
-    result = runner.invoke(cli, ["fork", ".config/nvim/lua", "--profile=base"], input="n\n")
+    result = runner.invoke(cli, ["fork", ".config/nvim", "--profile=base"], input="y\nn\n")
+    print(result.output)
     assert result.exit_code != 0
     assert "Warning" in result.output
 
     # warning, will just replace the fork with a symlink to another fork
-    result = runner.invoke(cli, ["fork", ".config/nvim/lua", "--profile=base"], input="y\n")
-    assert_result(result, "fork")
+    result = runner.invoke(
+        cli, ["fork", ".config/nvim", "--profile=base", "--symlink"], input="y\ny\n"
+    )
+    assert_result(result, "fork", tmp_home)
     assert "Warning" in result.output
 
     assert "echo Different remaps" in (tmp_home / ".config/nvim/lua/user/remaps.lua").read_text()
 
-    result = runner.invoke(cli, ["fork", ".config/nvim/lua", "--profile=base"], input="y\n")
-    assert_result(result, "fork")
-    assert "Warning" in result.output
-    assert (tmp_home / ".config/nvim/lua").is_symlink()
+    print("------")
+    print(file_tree(tmp_home))
+    result = runner.invoke(cli, ["fork", ".config/nvim/lua", "--profile=base", "-s"], input="y\n")
+    assert result.exit_code != 0
+    assert "Error" in result.output
+    assert "Symlink" in result.output
 
 
 def test_forking_parent(tmp_home: Path, used_repo: Path, runner: CliRunner):
@@ -198,14 +208,14 @@ def test_forking_parent(tmp_home: Path, used_repo: Path, runner: CliRunner):
     assert "Warning" in result.output
 
     # warning, will just replace the fork with a symlink to another fork
-    result = runner.invoke(cli, ["fork", ".config/nvim", "--profile=base"], input="y\n")
+    result = runner.invoke(cli, ["fork", ".config/nvim", "--profile=base"], input="y\ny\n")
     assert_result(result, "fork")
     assert "Warning" in result.output
 
     assert "echo Different remaps" in (tmp_home / ".config/nvim/lua/user/remaps.lua").read_text()
 
     result = runner.invoke(
-        cli, ["fork", ".config/nvim", "--profile=base", "--symlink"], input="y\n"
+        cli, ["fork", ".config/nvim", "--profile=base", "--symlink"], input="y\ny\n"
     )
     assert_result(result, "fork")
     assert "Warning" in result.output
@@ -248,25 +258,42 @@ def test_forking_already_forked(tmp_home: Path, used_repo: Path, runner: CliRunn
     assert result.exit_code != 0
     assert "Error" in result.output
 
-    # Will ask if you want to overwrite
+    # The profile specified is the current profile
     result = runner.invoke(
         cli, ["fork", ".config/nvim", "--profile=linux-dev-notebook"], input="y\n"
     )
+    assert result.exit_code != 0
+    assert "Error" in result.output
+
+    # Will ask if you want to overwrite
+    result = runner.invoke(cli, ["fork", ".config/nvim", "--profile=linux-dev"], input="y\n")
     assert_result(result, "fork")
     assert "Warning" in result.output
 
-    assert (
-        "echo Different remaps" not in (tmp_home / ".config/nvim/lua/user/remaps.lua").read_text()
-    )
+    assert "echo Different remaps" in (tmp_home / ".config/nvim/lua/user/remaps.lua").read_text()
 
     # Will ask if you want to overwrite
     result = runner.invoke(
-        cli, ["fork", ".config/nvim", "--profile=linux-dev-notebook", "--symlink"], input="y\n"
+        cli, ["fork", ".config/nvim", "--profile=linux-dev", "--symlink"], input="y\n"
     )
     assert_result(result, "fork")
     assert "Warning" in result.output
-    assert (tmp_home / ".config/nvim").is_symlink()
+    assert (used_repo / "files" / ".config/nvim").is_symlink()
 
-    assert (
-        "echo Different remaps" not in (tmp_home / ".config/nvim/lua/user/remaps.lua").read_text()
-    )
+    assert "echo Different remaps" in (tmp_home / ".config/nvim/lua/user/remaps.lua").read_text()
+
+
+def test_fork_parent_of_excluded_child(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    (tmp_home / ".config" / "polybar" / "picom.conf").touch()
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "patch")
+
+    result = runner.invoke(cli, ["use", "mac"])
+    assert_result(result, "use", tmp_home)
+
+    assert not (tmp_home / ".config" / "polybar" / "picom.conf").exists()
+
+    result = runner.invoke(cli, ["fork", ".config/polybar"])
+    assert_result(result, "fork")
+
+    assert not (tmp_home / ".config" / "polybar" / "picom.conf").exists()

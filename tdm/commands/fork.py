@@ -2,26 +2,39 @@ from pathlib import Path
 
 import click
 
-from tdm.fs_utils import copy_skip_present, delete
-from tdm.print_to_user import error, success
+import tdm.fs_utils as fs
+from tdm.print_to_user import error, success, warning
 from tdm.state import State
-from tdm.symlink_utils import symlink_and_backup_item
-
-# TODO: Check that a fork is not inside a forked directory.
-
-# TODO: Maybe some other already forked stuff?
-
-# TODO: Inside the forked directory is a symlinked fork
+from tdm.symlink_utils import desymlink_dir, symlink_and_backup_item, symlink_item
 
 
-def was_forked(state: State, relative_path: Path) -> bool:
-    # meaning its parent or the resource itself was already added
-    if relative_path.is_file() and (state.fork_dir / relative_path).exists():
-        return True
-    if any(str(relative_path).startswith(x) for x in state.forked_dirs):
-        return True
+def has_symlink_in_relative_path(base_path, relative_path):
+    """
+    Check if any directory in the relative_path (when combined with base_path)
+    is a symbolic link.
 
+    Args:
+        base_path (Path): The base directory path
+        relative_path (Path): The relative path to check
+
+    Returns:
+        bool: True if any directory in the path contains a symlink, False otherwise
+    """
+    current_path = base_path
+    for part in relative_path.parts:
+        current_path = current_path / part
+        if current_path.is_symlink():
+            return True
     return False
+
+
+def get_the_other_fork(state, profile) -> Path:
+    if profile == state.BASE_PROFILE:
+        origin_fork_dir = state.fork_backup_location()
+    else:
+        origin_fork_dir = state.fork_dir_p(profile)
+
+    return origin_fork_dir
 
 
 @click.command
@@ -47,62 +60,87 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         error("No tdm repo deployed.")
         return
 
-    if state.fork_dir in resource.parents:
-        relative_path = resource.relative_to(state.fork_dir)
-    elif state.file_dir in resource.parents:
-        relative_path = resource.relative_to(state.file_dir)
-    else:
-        relative_path = resource.relative_to(Path.home())
-    dotfile_path = state.file_dir / relative_path
-    not_yet_forked = not was_forked(state, relative_path)
+    if state.profile == state.BASE_PROFILE:
+        error(
+            "Cannot fork in the base profile. To be able to fork, create a new profile in the \033[3mconfig.toml\033[0m. file, and switch to it with the use command."
+        )
+        return
 
-    if not dotfile_path.exists():
+    relative_path = state.get_relative_path(resource)
+    dotfile_path = state.file_dir / relative_path
+    not_yet_forked = not state.is_forked_by_current_profile(relative_path)
+
+    # * First hangle warning and errors *
+    if not state.is_managed(relative_path):
         error("Not managing selected resource.")
 
-    if (
-        profile is not None
-        and not (state.repo / state.FORK_DIR_NAME / profile / relative_path).exists()
-    ):
-        error("The profile specified did not fork the selected path.")
-    # Prepare the forks dir
-    # populate the forks/profile/../file correctly
-    if symlink:  # populate with symlink
-        if profile is None:
-            error("Profile not specified.")
-            return
-        elif profile == state.profile:
-            error("Cannot symlink to current profile.")
+    if profile is None and symlink:
+        error("No profile specified while passing the --symlink option.")
 
-        new_link = state.fork_dir / relative_path
-        if new_link.exists():
-            delete(new_link)
-        new_link.parent.mkdir(exist_ok=True, parents=True)
-        new_link.symlink_to(
-            state.repo / state.FORK_DIR_NAME / profile / relative_path,
-            target_is_directory=(
-                state.repo / state.FORK_DIR_NAME / profile / relative_path
-            ).is_dir(),
-        )
+    dest_path = state.fork_dir / relative_path
+    not_forked_but_child_is = dotfile_path.is_dir() and not_yet_forked and dest_path.exists()
+
+    if symlink and has_symlink_in_relative_path(state.fork_dir, relative_path):
+        error("Symlink was already used on a parent fork of this path.")
+
+    if profile and profile == state.profile:
+        error("The profile specified is the current active profile.")
+
+    if not_forked_but_child_is:
+        warning("You are forking a parent of an already made fork.", ask_continue=True)
+
+    if profile:
+        path_in_origin_fork_dir = get_the_other_fork(state, profile) / relative_path
+        if not path_in_origin_fork_dir.exists():
+            error("The profile specified did not fork the selected path.")
+
+        if dest_path.exists():
+            warning("You will overwrite the current fork for this profile.", ask_continue=True)
     else:
-        if profile is None:  # use the current profile as source
-            file_in_fork_dir = state.fork_dir / relative_path
-        else:
-            file_in_fork_dir = state.repo / state.FORK_DIR_NAME / profile / relative_path
+        if state.is_forked_by_current_profile(relative_path):
+            error("The path specified is already forked.")
 
-        file_in_fork_dir.parent.mkdir(exist_ok=True, parents=True)
-        # copy keeping in mind already existing forks
-        copy_skip_present(dotfile_path, file_in_fork_dir)
+    # * Now do the actions *
+    if not_forked_but_child_is:
+        # desymlink the children forks
+        state.remove_children_in_forked_dir(str(relative_path))
+        # Resymlink child later? - No need, w
+        desymlink_dir(
+            state.fork_dir / relative_path,
+            state.fork_dir,
+            state.file_dir,
+            state.fork_backup_location(),
+        )
+
+    if profile:
+        origin_fork_dir = get_the_other_fork(state, profile)
+        path_in_origin_fork_dir = origin_fork_dir / relative_path
+        if symlink:
+            symlink_item(path_in_origin_fork_dir, origin_fork_dir, state.fork_dir)
+        else:
+            dest_path.parent.mkdir(exist_ok=True, parents=True)
+            if profile == state.BASE_PROFILE:  # Making sure all the files are in backup
+                fs.move_skip_present(
+                    state.file_dir / relative_path, state.fork_backup_location(True) / relative_path
+                )
+            # replacing original fork
+            fs.copy(path_in_origin_fork_dir, dest_path)
+    else:
+        dest_path.parent.mkdir(exist_ok=True, parents=True)
+        fs.copy_skip_present(state.file_dir / relative_path, dest_path)
 
     # mark that the whole dir is forked
     if dotfile_path.is_dir() and not_yet_forked:
         state.add_forked_dir(str(relative_path))
 
     # Apply the fork to file dir
-    symlink_and_backup_item(
-        state.fork_dir / relative_path,
-        state.fork_dir,
-        state.file_dir,
-        state.fork_backup_location(create=True),
-    )
+    # We want to this only when:
+    if not_yet_forked:
+        symlink_and_backup_item(
+            state.fork_dir / relative_path,
+            state.fork_dir,
+            state.file_dir,
+            state.fork_backup_location(create=True),
+        )
 
     success(f"forked \033[3m{path}\033[0m.")

@@ -77,6 +77,6 @@ def patch():
         state.added_dirs,
     )
 
-    symlink_tree(file_subtree, state)
+    symlink_tree(file_subtree, state)  # just deletes the file if is in the way of the symlink
 
     success("patched.")

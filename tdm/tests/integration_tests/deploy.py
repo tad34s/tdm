@@ -32,6 +32,9 @@ def test_deploy_command_forks(
     assert_result(result, "Deploy")
     check_files(FILES, tmp_home)
 
+    result = runner.invoke(cli, ["use", "linux-dev"])
+    assert_result(result, "use")
+
     result = runner.invoke(cli, ["fork", ".config/polybar"])
     assert_result(result, "fork")
     check_files(FILES, tmp_home)

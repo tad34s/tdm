@@ -4,7 +4,7 @@ from pathlib import Path
 import click
 
 from tdm.file_tree import create_tree, symlink_and_backup_tree
-from tdm.print_to_user import error, success
+from tdm.print_to_user import error, success, warning
 from tdm.state import State
 from tdm.symlink_utils import desymlink_dir, symlink_and_backup_item
 
@@ -22,34 +22,31 @@ def add(path: str):
         error("No tdm repo deployed.")
         return
 
-    if state.repo in resource.parents:
-        relative_path = resource.relative_to(state.file_dir)
-    else:
-        relative_path = resource.relative_to(Path.home())
+    relative_path = state.get_relative_path(resource)
     dotfile_path = state.file_dir / relative_path
 
-    if dotfile_path.exists():
-        if (  # checking if it was added already
-            resource.is_file()
-            or any(  # meaning its parent or the resource itself was already added
-                str(relative_path).startswith(x) for x in state.added_dirs
-            )
-        ):
-            error(
-                "Already managing selected resource. Use the fork command to create a different version."
-            )
-            return
+    if state.is_managed(relative_path):
+        error(
+            "Already managing selected resource. Use the fork command to create a different version."
+        )
 
-        # either adding a new dir, the children could be already added tho
-        if resource.is_dir():
-            desymlink_dir(
-                dotfile_path,
-                state.file_dir,
-                Path.home(),
-                state.get_app_data_dir() / state.BACKUP_DIR,
-            )
+    if state.is_ignored(relative_path):
+        error("Selected path is ignored by the current configuration.")
+
+    if state.is_excluded(relative_path):
+        warning(
+            "Selected path is excluded by the current profile. You can add it but to start using it, you will have to switch profiles.",
+            ask_continue=True,
+        )
 
     if resource.is_dir():
+        if dotfile_path.exists():
+            # adding a parent of some already added dotfile
+            # we should first desymlink the children
+            desymlink_dir(dotfile_path, state.file_dir, Path.home())
+            # then remove that the children were added
+            state.remove_children_in_added_dir(str(relative_path))
+
         state.add_added_dir(str(relative_path))
         state.copy_dir_to_repo(resource)
         file_subtree = create_tree(
@@ -62,11 +59,12 @@ def add(path: str):
     else:
         dotfile_path.parent.mkdir(exist_ok=True, parents=True)
         shutil.copy(resource, dotfile_path)
-        symlink_and_backup_item(
-            dotfile_path,
-            state.file_dir,
-            Path.home(),
-            state.get_app_data_dir(create=True) / state.BACKUP_DIR,
-        )
+        if not state.is_excluded(relative_path):
+            symlink_and_backup_item(
+                dotfile_path,
+                state.file_dir,
+                Path.home(),
+                state.get_app_data_dir(create=True) / state.BACKUP_DIR,
+            )
 
     success(f"added \033[3m{path}\033[0m.")

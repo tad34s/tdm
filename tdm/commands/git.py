@@ -23,6 +23,7 @@ def git(git_args) -> None:
         return
 
     state.unapply_forks()
+    state.kickout_ignored(state.file_dir)
 
     try:
         # Execute git with captured arguments
