@@ -16,5 +16,5 @@ def status() -> None:
     CYAN = "\033[36m"
     RESET = "\033[0m"
 
-    print(f"{GREEN}Profile{RESET}: {state.profile}")
-    print(f"{CYAN}Repo{RESET}: {str(state.repo.relative_to(Path.home()))}")
+    print(f"{GREEN}Repo{RESET}: {str(state.repo.relative_to(Path.home()))}")
+    print(f"{CYAN}Profile{RESET}: {state.profile}")
