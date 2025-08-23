@@ -162,8 +162,10 @@ class State:
         app_dir = self.get_app_data_dir()
         state_file = app_dir / self.STATE_FILE_NAME
         backup_dir = app_dir / self.BACKUP_DIR
-        delete(state_file)
-        delete(backup_dir)
+        if state_file.exists():
+            delete(state_file)
+        if backup_dir.exists():
+            delete(backup_dir)
 
     def is_managed(self, relative_path: Path) -> bool:
         dotfile_path = self.file_dir / relative_path
@@ -306,13 +308,9 @@ class State:
     def desymlink(self, keep: bool = False) -> None:
         """Desymlink all links made by the current state"""
 
+        print(keep)
         backup_location = self.file_dir if keep else self.backup_location()
-        desymlink_dir(
-            self.file_dir,
-            self.file_dir,
-            Path.home().expanduser(),
-            backup_location,
-        )
+        desymlink_dir(self.file_dir, self.file_dir, Path.home(), backup_location, copy=keep)
 
         self.unapply_forks()
 

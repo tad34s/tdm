@@ -58,5 +58,5 @@ def assert_result(result: Result, command_name: str, home: Path | None = None):
 def check_files(files: list[File], home: Path):
     for file in files:
         real_file = home / file.path
-        assert real_file.exists()
+        assert real_file.exists(), f"{str(real_file)} does not exist"
         assert real_file.read_text() == file.contents

@@ -15,7 +15,6 @@ def vacate(keep: bool) -> None:
         error("No tdm repo deployed.")
         return
     state.desymlink(keep)
-    state.delete()
 
-    # state.clean_app_dir()
+    state.clean_app_dir()
     success(f"vacated the \033[3m{str(state.repo.relative_to(Path.home()))}\033[0m repo.")

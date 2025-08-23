@@ -1,7 +1,7 @@
 from os import error
 from pathlib import Path
 
-from tdm.fs_utils import clean_parents, delete, move, move_skip_present
+import tdm.fs_utils as fs
 
 
 def symlink_item(item: Path, original_base: Path, new_base: Path) -> None:
@@ -13,7 +13,7 @@ def symlink_item(item: Path, original_base: Path, new_base: Path) -> None:
     if target_path.exists():
         if target_path.is_symlink() and target_path.readlink() == item:
             return
-        delete(target_path)
+        fs.delete(target_path)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.symlink_to(item, target_is_directory=item.is_dir())
 
@@ -31,7 +31,7 @@ def symlink_and_backup_item(
         else:
             backup_dest = backup_location / relative_path
             backup_dest.parent.mkdir(exist_ok=True, parents=True)
-            move_skip_present(target_path, backup_dest)
+            fs.move_skip_present(target_path, backup_dest)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.symlink_to(item, target_is_directory=item.is_dir())
 
@@ -65,8 +65,8 @@ def desymlink_path(
     if backup_location is not None:
         backup_path = backup_location / relative_path
         if backup_path.exists():
-            move(backup_path, target_path)
-        clean_parents(backup_path)
+            fs.move(backup_path, target_path)
+        fs.clean_parents(backup_path)
 
 
 def desymlink_dir(
@@ -74,13 +74,18 @@ def desymlink_dir(
     src_dir_base: Path,
     target_location_base: Path,
     backup_location: Path | None = None,
+    copy: bool = False,
 ) -> None:
     """Go through the src dir. For each entry:
     1. Find the symlink location, by swapping src_dir_base with target_base
     2. If there exists a symlink it will delete it. If backup path is provided it will replace it with the backup instead.
+
+    copy: If true will copy from backup location to target instead of move.
     """
     relative_path = src_dir.relative_to(src_dir_base)
     target = target_location_base / relative_path
+    backup_fn = fs.copy if copy else fs.move
+    print(backup_fn)
     if target.is_symlink():
         target.unlink()
     for item in src_dir.iterdir():
@@ -91,13 +96,13 @@ def desymlink_dir(
                 target.unlink()
                 backup_path = backup_location / relative_path
                 if backup_path.exists():
-                    move(backup_path, target)
-                    clean_parents(backup_path)
+                    backup_fn(backup_path, target)
+                    fs.clean_parents(backup_path)
             else:
                 target.unlink()
 
         elif item.is_dir():
-            desymlink_dir(item, src_dir_base, target_location_base, backup_location)
+            desymlink_dir(item, src_dir_base, target_location_base, backup_location, copy)
 
 
 def desymlink_fork(target_dotfile: Path, base_path: Path, backup_location: Path):
@@ -106,5 +111,5 @@ def desymlink_fork(target_dotfile: Path, base_path: Path, backup_location: Path)
     if target_dotfile.is_symlink():
         target_dotfile.unlink()
     if backup_path.exists():
-        move(backup_path, target_dotfile)
-        clean_parents(backup_path)
+        fs.move(backup_path, target_dotfile)
+        fs.clean_parents(backup_path)

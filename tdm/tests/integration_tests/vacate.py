@@ -24,7 +24,14 @@ def test_vacate_keep(tmp_home: Path, used_repo: Path, runner: CliRunner):
     assert result.exit_code == 0, f"Use failed: {result.output}"
     (tmp_home / ".config/nvim/lua/user/remaps.lua").resolve().write_text("echo Different remaps")
     result = runner.invoke(cli, ["vacate", "-k"])
+    assert_result(result, "vacate")
     i = [str(file.path) for file in FILES].index(".config/nvim/lua/user/remaps.lua")
     files = FILES.copy()
     files[i].contents = "echo Different remaps"
     check_files(files, tmp_home)
+    print(file_tree(used_repo))
+    i = [str(file.path) for file in files].index(".config/nvim/.lazy-lock.json")
+    files.pop(i)
+    i = [str(file.path) for file in files].index(".gitconfig")
+    files.pop(i)
+    check_files(files, used_repo / "files")
