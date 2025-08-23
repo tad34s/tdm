@@ -85,7 +85,6 @@ def desymlink_dir(
     relative_path = src_dir.relative_to(src_dir_base)
     target = target_location_base / relative_path
     backup_fn = fs.copy if copy else fs.move
-    print(backup_fn)
     if target.is_symlink():
         target.unlink()
     for item in src_dir.iterdir():
