@@ -114,6 +114,8 @@ class State:
         with state_file.open("r") as f:
             repo_dir = f.readline().strip()
             profile = f.readline().strip()
+        if repo_dir is None:
+            return None
         try:
             state = cls(Path(repo_dir), profile)
         except Exception:

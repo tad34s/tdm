@@ -151,7 +151,6 @@ class SymlinkManager:
         self.forget_node(node)
 
     def remove_node_backup(self, node: SymlinkNode):
-        print("backup", node.backup_path)
         if node.backup_path and node.backup_path.exists():
             if node.target_path.exists():
                 fs.delete(node.target_path)
@@ -291,12 +290,10 @@ class SymlinkManager:
         curr_src_dir = node.src_path
         for item in curr_src_dir.iterdir():
             if self.state.is_ignored(item):
-                print("found ignored", str(item))
                 relative_path = item.relative_to(node.src_base)
                 target_path = Path.home() / relative_path
                 target_path.parent.mkdir(exist_ok=True, parents=True)
                 fs.move_skip_present(item, target_path)
-                print("moving", str(item), "to", str(target_path))
                 # fs.delete(item)
 
             if item.is_dir():
@@ -313,7 +310,6 @@ class SymlinkManager:
             self.state, self.src_dir, self.target_dir, self.backup_location
         )
 
-        # print(new_nodes[0], self.nodes[0])
         nodes_indices = set(range(len(self.nodes)))
         new_nodes_indices = set(range(len(new_nodes)))
         # found matches
@@ -325,7 +321,6 @@ class SymlinkManager:
                     break
 
         # go over not matched
-        # print(ts.file_tree(Path.home()))
         for i in nodes_indices:
             node = self.nodes[i]
             node.desymlink(use_backup=True)

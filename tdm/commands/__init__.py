@@ -7,5 +7,6 @@ from tdm.commands.patch import patch
 from tdm.commands.rejoin import rejoin
 from tdm.commands.rm import rm
 from tdm.commands.status import status
+from tdm.commands.update import update
 from tdm.commands.use import use
 from tdm.commands.vacate import vacate

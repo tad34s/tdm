@@ -3,7 +3,6 @@ from shutil import copy
 
 import click
 
-import tdm.tests.utils as ts
 from tdm.print_to_user import error, success
 from tdm.state import State
 from tdm.symlink_manager import SymlinkManager
@@ -45,14 +44,12 @@ def patch():
         return
 
     symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
-    print("stuff", ts.file_tree(Path.home()))
     for dir in state.added_dirs:
         if not (state.file_dir / dir).exists():
             state.remove_added_dir(dir)
             state.remove_backup(Path(dir))
             continue
 
-        print("patching", Path(dir))
         add_new_children(Path(dir), state)
 
     symlink_manager.patch()

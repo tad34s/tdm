@@ -27,9 +27,13 @@ def deploy(path: str, profile: str, name: str | None, bootstrap: bool) -> None:
 
     dotfiles_repo: Path = Path()
     if is_git_url(path):
+        name = path.split("/")[-1].split(".")[0] if name is None else name
         path_to_dir = Path().cwd() / name if name is not None else Path().cwd()
+        if path_to_dir.exists():
+            error("A directory such as this already exists.")
+
         repo = Repo.clone_from(path, path_to_dir)
-        dotfiles_repo = Path(str(repo.working_tree_dir))
+        dotfiles_repo = path_to_dir
     else:
         dotfiles_repo = Path(path).resolve()
         if not dotfiles_repo.exists():

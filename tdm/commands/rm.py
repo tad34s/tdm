@@ -48,7 +48,6 @@ def rm(path: str, keep: bool, delete: bool):
     node = symlink_manager.get_node(relative_path)
     if node is None:
         nodes = symlink_manager.get_children(relative_path)
-        print("nodes", nodes)
         for child in nodes:
             if keep:
                 symlink_manager.remove_node_keep(child)

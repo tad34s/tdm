@@ -16,3 +16,9 @@ def test_init_command(tdm_prepped_repo: Path) -> None:
         config = tomllib.load(f)
     assert config["bootstrap"] == ""
     assert ".lazy-lock.json" in config["ignore"]
+
+
+def test_init_command_replace(used_repo: Path, tmp_home: Path, runner: CliRunner) -> None:
+    result = runner.invoke(cli, ["init", "dotfiles"], input="y\n")
+    assert_result(result, "init")
+    assert not (tmp_home / "dotfiles" / ".tdm").exists()

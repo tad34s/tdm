@@ -11,9 +11,11 @@ from tdm.tests.utils import assert_result
 
 def test_git_without_deployment(runner: CliRunner):
     """Test git command without deployed TDM repo"""
+    result = runner.invoke(cli, ["vacate"])
     result = runner.invoke(cli, ["git", "status"])
     tracebakc_ig: TracebackType = result.exc_info[2]
     print(traceback.print_tb(tracebakc_ig))
+    print(result.output)
     assert result.exit_code != 0
     assert "No tdm repo deployed" in result.output
 

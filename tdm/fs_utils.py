@@ -135,7 +135,6 @@ def move_skip_present(src: Path, dest: Path) -> None:
 def remove_relative(absolute_path: Path, relative_suffix: Path):
     # Traverse up the number of times equal to the parts in the relative path
     base = absolute_path
-    print(absolute_path, relative_suffix)
     parts = reversed(relative_suffix.parts)
     for part in parts:
         assert part == base.name, f"{part}!={base.name} part of the relative path does not match"

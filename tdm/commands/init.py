@@ -3,7 +3,8 @@ from pathlib import Path
 
 import click
 
-from tdm.print_to_user import error, success
+import tdm.fs_utils as fs
+from tdm.print_to_user import success, warning
 
 sample_config = """
 bootstrap = ""  
@@ -23,20 +24,24 @@ exclude = []
 
 
 @click.command()
-@click.argument("name")
+@click.argument("path")
 @click.option("--git", "-g", is_flag=True, help="Prompt to add remote.")
-def init(name: str, git: bool) -> None:
+def init(path: str, git: bool) -> None:
     """Initialize new dotfiles repository"""
 
     dirs = ["files", "forks", "bin"]
-    dotfiles_repo = Path(name).resolve()
+    dotfiles_repo = Path(path).resolve()
     if dotfiles_repo.exists():
-        error("Such directory already exists")
+        warning("Such directory already exists. It will be overwritten.", ask_continue=True)
 
-    dotfiles_repo.mkdir(parents=True)
+    dotfiles_repo.mkdir(parents=True, exist_ok=True)
 
+    if (dotfiles_repo / ".tdm").exists():
+        fs.delete(dotfiles_repo / ".tdm")
     for directory in dirs:
         new_dir = dotfiles_repo / directory
+        if new_dir.exists():
+            fs.delete(new_dir)
         new_dir.mkdir(parents=True)
 
     with (dotfiles_repo / "config.toml").open("w") as f:
@@ -61,4 +66,4 @@ def init(name: str, git: bool) -> None:
                 capture_output=True,
             )
 
-    success(f"created a tdm repo at \033[3m{name}\033[0m.")
+    success(f"initialized a tdm repo at \033[3m{dotfiles_repo.resolve()}\033[0m.")

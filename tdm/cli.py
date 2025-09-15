@@ -1,6 +1,19 @@
 import click
 
-from tdm.commands import add, deploy, fork, git, init, patch, rejoin, rm, status, use, vacate
+from tdm.commands import (
+    add,
+    deploy,
+    fork,
+    git,
+    init,
+    patch,
+    rejoin,
+    rm,
+    status,
+    update,
+    use,
+    vacate,
+)
 
 
 @click.group()
@@ -19,3 +32,4 @@ cli.add_command(vacate)
 cli.add_command(patch)
 cli.add_command(git)
 cli.add_command(status)
+cli.add_command(update)

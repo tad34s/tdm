@@ -1,6 +1,9 @@
+import shutil
 from pathlib import Path
+from unittest.mock import Mock
 
 from click.testing import CliRunner
+from git import Repo
 
 from tdm.cli import cli
 from tdm.tests.fixtures import *
@@ -101,3 +104,44 @@ def test_bootstrap_on_deploy(tmp_home, tdm_prepped_repo, runner: CliRunner):
     assert_result(result, "deploy with bootstrap", tmp_home)
 
     assert (tmp_home / "bootstrap_ran_linux").exists()
+
+
+def test_deploy_from_github_repo_already_exists(
+    monkeypatch, additional_dotfiles: Path, tmp_home: Path, runner: CliRunner
+) -> None:
+    """Test deployment from a GitHub repository URL"""
+
+    result = runner.invoke(cli, ["vacate"])
+
+    # Mock Repo.clone_from to copy our test repo instead of cloning
+    def mock_clone_from(url: str, to_path: Path, depth=None):
+        shutil.copytree(additional_dotfiles, to_path)
+        return Mock(spec=Repo)
+
+    monkeypatch.setattr(Repo, "clone_from", mock_clone_from)
+
+    # Deploy using GitHub URL
+    result = runner.invoke(cli, ["deploy", "https://github.com/testuser/teckafiles.git"])
+    assert result.exit_code != 0, "Such folder already exists"
+    assert "exists" in result.output
+
+
+def test_deploy_from_github_repo(
+    monkeypatch, additional_dotfiles: Path, tmp_home: Path, runner: CliRunner
+) -> None:
+    """Test deployment from a GitHub repository URL"""
+
+    result = runner.invoke(cli, ["vacate"])
+
+    # Mock Repo.clone_from to copy our test repo instead of cloning
+    def mock_clone_from(url: str, to_path: Path, depth=None):
+        shutil.copytree(additional_dotfiles, to_path)
+        return Mock(spec=Repo)
+
+    monkeypatch.setattr(Repo, "clone_from", mock_clone_from)
+
+    # Deploy using GitHub URL
+    result = runner.invoke(cli, ["deploy", "https://github.com/testuser/teckafiles2.git"])
+    assert_result(result, "deploy", tmp_home)
+
+    assert "teckafiles2" in (tmp_home / ".local" / "share" / "tdm" / "state").read_text()
