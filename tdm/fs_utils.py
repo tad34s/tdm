@@ -52,7 +52,9 @@ def clean_parents(file: Path):
 
 
 def delete(path: Path) -> None:
-    if path.is_dir():
+    if path.is_symlink():
+        path.unlink()
+    elif path.is_dir():
         shutil.rmtree(path)
     else:
         path.unlink()
@@ -67,6 +69,11 @@ def copy(src: Path, dest: Path) -> None:
 
 def move(src: Path, dest: Path) -> None:
     shutil.move(src, dest)
+
+
+def ensure_parents(path: Path) -> None:
+    """Create all the parents of a file if they do not exist."""
+    path.parent.mkdir(exist_ok=True, parents=True)
 
 
 def copy_skip_present(src: Path, dest: Path) -> None:
@@ -91,12 +98,6 @@ def copy_skip_present(src: Path, dest: Path) -> None:
             else:
                 recursively_copy(item, target)
 
-    # if src.is_file() and not dest.exists():
-    #     dest.parent.mkdir(exist_ok=True, parents=True)
-    #     shutil.copy2(src, dest)
-    # else:
-    #     recursively_copy(src, dest)
-
     if not dest.exists():
         dest.parent.mkdir(exist_ok=True, parents=True)
         copy(src, dest)
@@ -106,7 +107,7 @@ def copy_skip_present(src: Path, dest: Path) -> None:
 
 def move_skip_present(src: Path, dest: Path) -> None:
     """Move from src to dest.
-    If the src or a child of the src is already at the destination we skip it (this part of destination is unchanged) the srd will be then deleted.
+    If the src or a child of the src is already at the destination we skip it (this part of destination is unchanged) the src will be then deleted.
     """
 
     def recursively_move(src_dir: Path, dest_dir: Path):
@@ -129,3 +130,14 @@ def move_skip_present(src: Path, dest: Path) -> None:
         recursively_move(src, dest)
         if src.exists():
             delete(src)
+
+
+def remove_relative(absolute_path: Path, relative_suffix: Path):
+    # Traverse up the number of times equal to the parts in the relative path
+    base = absolute_path
+    print(absolute_path, relative_suffix)
+    parts = reversed(relative_suffix.parts)
+    for part in parts:
+        assert part == base.name, f"{part}!={base.name} part of the relative path does not match"
+        base = base.parent
+    return base

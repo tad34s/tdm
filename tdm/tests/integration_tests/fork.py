@@ -23,21 +23,21 @@ from tdm.tests.utils import assert_result
 
 def test_fork_file(tmp_home: Path, used_repo: Path, runner: CliRunner):
     result = runner.invoke(cli, ["use", "linux-dev"])
-    assert result.exit_code == 0, f"Use failed: {result.output}"
+    assert_result(result, "use")
 
     result = runner.invoke(cli, ["fork", ".bashrc"])
-    assert result.exit_code == 0, f"Fork failed: {result.output}"
+    assert_result(result, "fork", tmp_home)
 
     (tmp_home / ".bashrc").write_text("echo Different text")
     assert (tmp_home / ".bashrc").read_text() == "echo Different text"
 
     result = runner.invoke(cli, ["use", "base"])
-    assert result.exit_code == 0, f"Use failed: {result.output}"
+    assert_result(result, "use", tmp_home)
 
     assert (tmp_home / ".bashrc").read_text() == "echo hello from bashrc"
 
     result = runner.invoke(cli, ["use", "linux-dev", "-b"])
-    assert result.exit_code == 0, f"Use failed: {result.output}"
+    assert_result(result, "use", tmp_home)
 
     assert (tmp_home / ".bashrc").read_text() == "echo Different text"
 
@@ -47,9 +47,10 @@ def test_fork_dir(tmp_home: Path, used_repo: Path, runner: CliRunner):
     assert result.exit_code == 0, f"Use failed: {result.output}"
 
     result = runner.invoke(cli, ["fork", ".config/nvim"])
-    assert_result(result, "Fork")
+    assert_result(result, "Fork", tmp_home)
 
-    assert (used_repo / "files" / ".config/nvim").is_symlink()
+    assert (tmp_home / ".config" / "nvim" / "lua").is_symlink()
+    assert "linux-dev" in str((tmp_home / ".config" / "nvim" / "lua").readlink())
 
     (tmp_home / ".config/nvim/lua/user/remaps.lua").write_text("echo Different remaps")
     assert (tmp_home / ".config/nvim/lua/user/remaps.lua").read_text() == "echo Different remaps"
@@ -65,7 +66,8 @@ def test_fork_dir(tmp_home: Path, used_repo: Path, runner: CliRunner):
     assert result.exit_code == 0, f"Use failed: {result.output}"
 
     assert (tmp_home / ".config/nvim/lua/user/remaps.lua").read_text() == "echo Different remaps"
-    assert (used_repo / "files" / ".config/nvim").is_symlink()
+    assert (tmp_home / ".config" / "nvim" / "lua").is_symlink()
+    assert "linux-dev" in str((tmp_home / ".config" / "nvim" / "lua").readlink())
 
 
 def test_fork_symlink(tmp_home: Path, used_repo: Path, runner: CliRunner):
@@ -278,7 +280,7 @@ def test_forking_already_forked(tmp_home: Path, used_repo: Path, runner: CliRunn
     )
     assert_result(result, "fork")
     assert "Warning" in result.output
-    assert (used_repo / "files" / ".config/nvim").is_symlink()
+    assert "linux-dev" in str((tmp_home / ".config" / "nvim" / "lua").resolve())
 
     assert "echo Different remaps" in (tmp_home / ".config/nvim/lua/user/remaps.lua").read_text()
 

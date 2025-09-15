@@ -46,6 +46,7 @@ def test_adding_child(tmp_home: Path, used_repo: Path, runner: CliRunner):
 def test_add_parent(tmp_home: Path, used_repo: Path, runner: CliRunner):
     (tmp_home / ".config" / "nvim" / ".lazy-lock.json").unlink()
 
+    print(file_tree(tmp_home))
     result = runner.invoke(cli, ["add", ".config"], input="y\n")
     assert_result(result, "add", tmp_home)
 
@@ -91,7 +92,7 @@ def test_add_ignored(tmp_home: Path, used_repo: Path, runner: CliRunner):
 
 def test_add_excluded(tmp_home: Path, used_repo: Path, runner: CliRunner):
     result = runner.invoke(cli, ["use", "mac"])
-    assert_result(result, "use")
+    assert_result(result, "use", tmp_home)
 
     result = runner.invoke(cli, ["rm", ".config/picom.conf"])
     assert_result(result, "rm", tmp_home)

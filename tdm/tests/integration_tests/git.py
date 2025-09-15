@@ -6,7 +6,7 @@ from click.testing import CliRunner
 
 from tdm.cli import cli
 from tdm.tests.fixtures import *
-from tdm.tests.utils import assert_result, file_tree
+from tdm.tests.utils import assert_result
 
 
 def test_git_without_deployment(runner: CliRunner):
@@ -34,16 +34,15 @@ def test_git_command_restores_state(used_repo: Path, runner: CliRunner, tmp_home
     runner.invoke(cli, ["fork", ".bashrc"])
 
     # Verify initial symlink state
-    file_path = used_repo / "files" / ".bashrc"
-    assert file_path.is_symlink()
+    file_path = tmp_home / ".bashrc"
+    assert "linux-dev" in str(file_path.resolve())
 
     # Run git command
     result = runner.invoke(cli, ["git", "status"])
     assert result.exit_code == 0
 
     # Verify symlink was restored
-    print(file_tree(tmp_home))
-    assert file_path.is_symlink()
+    assert "linux-dev" in str(file_path.resolve())
 
 
 def test_git_sees_base_files(used_repo: Path, runner: CliRunner, tmp_home: Path):
@@ -63,7 +62,7 @@ def test_git_sees_base_files(used_repo: Path, runner: CliRunner, tmp_home: Path)
     fork_path.write_text("forked")
 
     # Modify backup (base) version
-    backup_path = used_repo / ".tdm" / "base_files" / ".bashrc"
+    backup_path = used_repo / "files" / ".bashrc"
     backup_path.write_text("modified base")
 
     # Check git sees the modified base version

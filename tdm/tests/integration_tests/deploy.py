@@ -36,7 +36,7 @@ def test_deploy_command_forks(
     assert_result(result, "use")
 
     result = runner.invoke(cli, ["fork", ".config/polybar"])
-    assert_result(result, "fork")
+    assert_result(result, "fork", tmp_home)
     check_files(FILES, tmp_home)
 
     result = runner.invoke(cli, ["deploy", "teckafiles"])

@@ -22,7 +22,6 @@ def git(git_args) -> None:
         error("No tdm repo deployed.")
         return
 
-    state.unapply_forks()
     state.kickout_ignored(state.file_dir)
 
     try:
@@ -37,11 +36,8 @@ def git(git_args) -> None:
             print_git(err_out, error=True)
 
     except Exception as e:
-        state.apply_forks()  # cleanup
         error(f"Failed to execute git: {e}")
         return
-
-    state.apply_forks()
 
     # Propagate git's exit code
     sys.exit(result.returncode)

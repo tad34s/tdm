@@ -20,13 +20,14 @@ def test_rejoin_file(tmp_home: Path, used_repo: Path, runner: CliRunner):
     result = runner.invoke(cli, ["use", "linux-dev", "-b"])
     assert (tmp_home / ".bashrc").read_text() == "echo Different text"
 
-    assert (used_repo / "files" / ".bashrc").is_symlink()
+    assert "linux-dev" in str((tmp_home / ".bashrc").readlink())
     # rejoin
     result = runner.invoke(cli, ["rejoin", ".bashrc"])
     assert_result(result, "rejoin", tmp_home)
 
     # rejoin worked
-    assert not (used_repo / "files" / ".bashrc").is_symlink()
+    assert "linux-dev" not in str((tmp_home / ".bashrc").readlink())
+    assert "files" in str((tmp_home / ".bashrc").readlink())
     # correct content
     assert (tmp_home / ".bashrc").read_text() == "echo hello from bashrc"
 
@@ -59,7 +60,7 @@ def test_rejoin_dir(tmp_home: Path, used_repo: Path, runner: CliRunner):
         tmp_home / ".config/nvim/lua/user/remaps.lua"
     ).read_text() == 'My remaps: \n vim vim.g.mapleader = " "'
     result = runner.invoke(cli, ["use", "linux-dev"])
-    assert (used_repo / "files" / ".config/nvim").is_symlink()
+    assert "linux-dev" in str((tmp_home / ".config" / "nvim" / "lua").readlink())
 
     result = runner.invoke(cli, ["rejoin", ".config/nvim"])
     assert_result(result, "rejoin", tmp_home)

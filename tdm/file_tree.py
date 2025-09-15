@@ -1,94 +1,365 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import tdm.fs_utils as fs
 from tdm.state import State
-from tdm.symlink_utils import symlink_and_backup_item, symlink_item
 
 
 @dataclass
-class TreeNode:
-    path: Path
-    symlink: bool
-    children: list["TreeNode"]
+class SymlinkNode:
+    relative_path: Path
+    src_base: Path
+    target_base: Path
+    backup_base: Path | None = None
+
+    def __post_init__(self):
+        self.src_path = self.src_base / self.relative_path
+        self.target_path = self.target_base / self.relative_path
+        self.backup_path = self.backup_base / self.relative_path if self.backup_base else None
+
+    def symlink(self):
+        fs.ensure_parents(self.target_path)
+
+        if self.target_path.exists():
+            if self.target_path.is_symlink() and self.target_path.readlink() == self.src_path:
+                return
+            if self.backup_path:
+                fs.ensure_parents(self.backup_path)
+                fs.move_skip_present(self.target_path, self.backup_path)
+            else:
+                fs.delete(self.target_path)
+        self.target_path.symlink_to(self.src_path)
+
+    def desymlink(self, use_backup: bool):
+        assert self.target_path.is_symlink(), (
+            f"{self.target_path} - target is not a symlink when desymlinking"
+        )
+        self.target_path.unlink()
+        if self.backup_path and use_backup and self.backup_path.exists():
+            fs.move(self.backup_path, self.target_path)
+            fs.clean_parents(self.backup_path)
+
+    def desymlink_keep(self):
+        assert self.target_path.is_symlink(), "target is not a symlink when desymlinking"
+        self.target_path.unlink()
+        fs.copy(self.src_path, self.target_path)
+
+    def __eq__(self, value: object, /) -> bool:
+        if type(value) is not type(self):
+            return False
+        return (
+            self.src_path == value.src_path
+            and self.target_path == value.target_path
+            and self.backup_path == value.backup_path
+        )
 
 
-def create_tree(
-    state: State,
-    curr_src_dir: Path,
-    added_dirs: set[str],
-    dir_added: bool = False,
-) -> TreeNode | None:
-    if state.is_excluded(curr_src_dir) or state.is_ignored(curr_src_dir):
-        return None
-    relative_path = curr_src_dir.relative_to(state.file_dir)
-    should_symlink_all = dir_added or str(relative_path) in added_dirs
-    could_symlink_all = should_symlink_all
+class FileTree:
+    def __init__(
+        self,
+        state: State,
+        src_dir: Path,
+        target_dir: Path | None = None,
+        backup_location: Path | None = None,
+    ) -> None:
+        self.src_dir = src_dir
+        self.state = state
+        self.target_dir = target_dir if target_dir else Path.home()
+        self.backup_location = backup_location
+        self.nodes = self.current_tree(
+            self.state, self.src_dir, self.target_dir, self.backup_location
+        )
 
-    children: list[TreeNode] = []
+    @staticmethod
+    def current_tree(
+        state: State, src_dir: Path, target_dir_base: Path, backup_location: Path | None
+    ) -> list[SymlinkNode]:
+        """Get the current symlink layout."""
+        queue: list[Path] = [src_dir]
+        output: list[SymlinkNode] = []
 
-    for item in curr_src_dir.iterdir():
-        # excluding
-        # ignored files should not appear in the repo, but they can (patch was not ran)
-        if state.is_excluded(item) or state.is_ignored(item):
-            could_symlink_all = False  # cannot symlink whole dir
-            continue
+        # Using BFS to walk through the files in the files dir in repo
+        while queue:
+            curr_src_dir = queue.pop(0)
 
-        if item.is_file(follow_symlinks=True):  # can always symlink a simple file
-            children.append(TreeNode(item, True, []))
+            for child in curr_src_dir.iterdir():
+                child_relative = child.relative_to(state.file_dir)
+                target_path = target_dir_base / child_relative
+                if (
+                    target_path.exists()
+                    and target_path.is_symlink()
+                    and state.repo in target_path.readlink().parents
+                ):
+                    output.append(
+                        SymlinkNode(
+                            child_relative,
+                            fs.remove_relative(target_path.readlink(), child_relative),
+                            target_dir_base,
+                            backup_base=backup_location,
+                        )
+                    )
+                    continue
+                if child.is_dir():
+                    queue.append(child)
+        return output
 
-        elif item.is_dir(follow_symlinks=True):
-            new_child = create_tree(state, item, added_dirs, should_symlink_all)
-            if new_child is None:
-                continue
-            if not new_child.symlink:  # check whether we could symlink whole child
-                could_symlink_all = False
-            children.append(new_child)
+    def resymlink(self):
+        new_nodes = FileTree.create_tree(
+            self.state, self.src_dir, self.target_dir, self.backup_location
+        )
 
-    # the corresponding dir in real home
-    corresponding_dir = Path.home() / relative_path
+        # print(new_nodes[0], self.nodes[0])
+        nodes_indices = set(range(len(self.nodes)))
+        new_nodes_indices = set(range(len(new_nodes)))
+        # found matches
+        for i, node in enumerate(self.nodes):
+            for j, new_node in enumerate(new_nodes):
+                if new_node == node:
+                    nodes_indices.remove(i)
+                    new_nodes_indices.remove(j)
+                    break
 
-    # check if we can really replace the whole corresponding dir
-    # this is assuming that ignored files are not present in the repo
-    if corresponding_dir.exists():
-        for item in corresponding_dir.iterdir():
-            if state.is_ignored(item):
-                could_symlink_all = False
+        # go over not matched
+        for i in nodes_indices:
+            node = self.nodes[i]
+            node.desymlink(use_backup=True)
+        for j in new_nodes_indices:
+            new_node = new_nodes[j]
+            new_node.symlink()
+
+        self.nodes = new_nodes
+
+    def symlink(self):
+        for node in self.nodes:
+            node.symlink()
+
+    def desymlink(self, use_backup: bool = True):
+        for node in self.nodes:
+            node.desymlink(use_backup)
+
+    def desymlink_keep(self):
+        for node in self.nodes:
+            node.desymlink_keep()
+
+    def get_node(self, relative_path: Path) -> SymlinkNode | None:
+        target_path = self.target_dir / relative_path
+        if (
+            not target_path.exists()
+            or not target_path.is_symlink()
+            or self.state.repo not in target_path.readlink().parents
+        ):
+            return None
+
+        return SymlinkNode(
+            relative_path,
+            fs.remove_relative(target_path.readlink(), relative_path),
+            self.target_dir,
+            backup_base=self.backup_location,
+        )
+
+    def get_children(self, relative_path: Path) -> list[SymlinkNode]:
+        children = []
+        for node in self.nodes:
+            if str(relative_path) in str(node.src_path):
+                children.append(node)
+        return children
+
+    def forget_node(self, node: SymlinkNode):
+        for i, saved_node in enumerate(self.nodes):
+            if node == saved_node:
+                self.nodes.pop(i)
                 break
 
-    return TreeNode(curr_src_dir, could_symlink_all, children)
+    def remove_node_keep(self, node: SymlinkNode):
+        if node.target_path.is_symlink():
+            node.target_path.unlink()
+        fs.move(node.src_path, node.target_path)
+        self.forget_node(node)
 
+    def remove_node_backup(self, node: SymlinkNode):
+        print("backup", node.backup_path)
+        if node.backup_path and node.backup_path.exists():
+            if node.target_path.exists():
+                fs.delete(node.target_path)
+            fs.move(node.backup_path, node.target_path)
+            fs.clean_parents(node.backup_path)
 
-def symlink_tree(root: TreeNode | None, state: State) -> None:
-    if root is None:
-        return
-    queue = [root]
-    while queue:
-        curr = queue.pop(0)
-        if curr.path.is_file() or (curr.path.is_dir() and curr.symlink):
-            symlink_item(
-                curr.path,
-                state.file_dir,
-                Path.home(),
-            )
-        else:
-            for child in curr.children:
-                queue.append(child)
+        self.forget_node(node)
 
+    def remove_node_delete(self, node: SymlinkNode):
+        node.target_path.unlink()
+        self.forget_node(node)
 
-def symlink_and_backup_tree(root: TreeNode | None, state: State) -> None:
-    # NOTE: Traversing using BFS, the graph is a directed tree, so marking visited is not needed
-    if root is None:
-        return
-    queue = [root]
-    while queue:
-        curr = queue.pop(0)
-        if curr.path.is_file() or (curr.path.is_dir() and curr.symlink):
-            symlink_and_backup_item(
-                curr.path,
-                state.file_dir,
-                Path.home(),
-                state.get_app_data_dir(create=True) / state.BACKUP_DIR,
-            )
-        else:
-            for child in curr.children:
-                queue.append(child)
+    @staticmethod
+    def __create_tree_rec(
+        state: State,
+        curr_src_dir: Path,
+        target_dir_base: Path,
+        src_dir_base: Path,
+        backup_location: Path | None,
+        added_dirs: set[str],
+        dir_added: bool = False,
+    ) -> tuple[list[SymlinkNode], bool]:
+        if state.is_excluded(curr_src_dir) or state.is_ignored(curr_src_dir):
+            return [], False
+        relative_path = curr_src_dir.relative_to(src_dir_base)
+        should_symlink_all = dir_added or str(relative_path) in added_dirs
+        could_symlink_all = should_symlink_all
+
+        children_to_symlink: list[SymlinkNode] = []
+
+        for child in curr_src_dir.iterdir():
+            child_relative = child.relative_to(src_dir_base)
+            # excluding
+            # ignored files should not appear in the repo, but they can (patch was not ran)
+            if state.is_excluded(child_relative) or state.is_ignored(child_relative):
+                could_symlink_all = False  # cannot symlink whole dir
+                continue
+
+            # We arrive first at the root of the fork because, we are going down the tree
+            # meaning we do not care about children here
+            # (if we stop the recursion after encountering a fork)
+            # TODO: FIX, inside a fork dir can still be ignored stuff -> breaking at the fork node
+            # we have to continue recursion
+            if state.is_forked_by_current_profile(child_relative):
+                if child.is_dir():
+                    children_in_fork, could_symlink_child = FileTree.__create_tree_rec(
+                        state,
+                        state.fork_dir / child_relative,
+                        target_dir_base,
+                        state.fork_dir,
+                        backup_location,
+                        added_dirs,
+                        should_symlink_all,
+                    )
+                    children_to_symlink += children_in_fork
+
+                    if not could_symlink_child:
+                        could_symlink_all = False
+                else:
+                    children_to_symlink.append(
+                        SymlinkNode(
+                            relative_path=child_relative,
+                            src_base=state.fork_dir,
+                            target_base=target_dir_base,
+                            backup_base=backup_location,
+                        )
+                    )
+
+                # we are changing where to we symlink so we cannot symlink this whole node
+                if src_dir_base == state.file_dir:
+                    could_symlink_all = False  # cannot symlink whole dir
+                continue
+
+            if child.is_file(follow_symlinks=True):  # can always symlink a simple file
+                children_to_symlink.append(
+                    SymlinkNode(
+                        relative_path=child_relative,
+                        src_base=src_dir_base,
+                        target_base=target_dir_base,
+                        backup_base=backup_location,
+                    )
+                )
+
+            elif child.is_dir(follow_symlinks=True):
+                new_children, could_symlink_child = FileTree.__create_tree_rec(
+                    state,
+                    child,
+                    target_dir_base,
+                    src_dir_base,
+                    backup_location,
+                    added_dirs,
+                    should_symlink_all,
+                )
+                # check whether we could symlink whole child
+                children_to_symlink += new_children
+                if not could_symlink_child:
+                    could_symlink_all = False
+
+        # the corresponding dir in real home
+        corresponding_dir = Path.home() / relative_path
+
+        # check if we can really replace the whole corresponding dir
+        # this is assuming that ignored files are not present in the repo
+        if corresponding_dir.exists():
+            for child in corresponding_dir.iterdir():
+                if state.is_ignored(child):
+                    could_symlink_all = False
+                    break
+
+        if could_symlink_all:
+            return [
+                SymlinkNode(
+                    relative_path=relative_path,
+                    src_base=src_dir_base,
+                    target_base=target_dir_base,
+                    backup_base=backup_location,
+                )
+            ], True
+
+        return children_to_symlink, False
+
+    @staticmethod
+    def create_tree(
+        state: State, src_dir: Path, target_dir: Path, backup_location: Path | None
+    ) -> list[SymlinkNode]:
+        nodes, _ = FileTree.__create_tree_rec(
+            state,
+            src_dir,
+            target_dir,
+            state.file_dir,
+            backup_location,
+            state.added_dirs,
+        )
+        return nodes
+
+    def kickout_ignored(self, node: SymlinkNode):
+        curr_src_dir = node.src_path
+        for item in curr_src_dir.iterdir():
+            if self.state.is_ignored(item):
+                print("found ignored", str(item))
+                relative_path = item.relative_to(node.src_base)
+                target_path = Path.home() / relative_path
+                target_path.parent.mkdir(exist_ok=True, parents=True)
+                fs.move_skip_present(item, target_path)
+                print("moving", str(item), "to", str(target_path))
+                # fs.delete(item)
+
+            if item.is_dir():
+                item_node = SymlinkNode(
+                    item.relative_to(node.src_base),
+                    node.src_base,
+                    node.target_base,
+                    node.backup_base,
+                )
+                self.kickout_ignored(item_node)
+
+    def patch(self):
+        new_nodes = FileTree.create_tree(
+            self.state, self.src_dir, self.target_dir, self.backup_location
+        )
+
+        # print(new_nodes[0], self.nodes[0])
+        nodes_indices = set(range(len(self.nodes)))
+        new_nodes_indices = set(range(len(new_nodes)))
+        # found matches
+        for i, node in enumerate(self.nodes):
+            for j, new_node in enumerate(new_nodes):
+                if new_node == node:
+                    nodes_indices.remove(i)
+                    new_nodes_indices.remove(j)
+                    break
+
+        # go over not matched
+        # print(ts.file_tree(Path.home()))
+        for i in nodes_indices:
+            node = self.nodes[i]
+            node.desymlink(use_backup=True)
+            if node.src_path.is_dir():
+                self.kickout_ignored(node)
+
+        for j in new_nodes_indices:
+            new_node = new_nodes[j]
+            new_node.symlink()
+
+        self.nodes = new_nodes

@@ -3,6 +3,7 @@ import sys
 
 import click
 
+from tdm.file_tree import FileTree
 from tdm.print_to_user import error, success
 from tdm.state import State
 
@@ -14,17 +15,17 @@ def update():
         error("No tdm repo deployed.")
         return
 
-    state.desymlink()
+    file_tree = FileTree(state, state.file_dir, backup_location=state.backup_location())
 
     try:
         # Execute git with captured arguments
         result = subprocess.run(["git", "pull"], check=False, cwd=state.repo)
     except Exception as e:
-        state.symlink()  # cleanup
+        file_tree.resymlink()
         error(f"Failed to pull from git: {e}")
         return
 
-    state.symlink()
+    file_tree.resymlink()
 
     # Propagate git's exit code
     sys.exit(result.returncode)

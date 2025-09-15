@@ -3,10 +3,9 @@ from pathlib import Path
 
 import click
 
-from tdm.file_tree import create_tree, symlink_and_backup_tree
+from tdm.file_tree import FileTree
 from tdm.print_to_user import error, success, warning
 from tdm.state import State
-from tdm.symlink_utils import desymlink_dir, symlink_and_backup_item
 
 
 @click.command
@@ -39,32 +38,23 @@ def add(path: str):
             ask_continue=True,
         )
 
+    # pdb.set_trace()
+    file_tree = FileTree(state, state.file_dir, backup_location=state.backup_location())
+
     if resource.is_dir():
         if dotfile_path.exists():
             # adding a parent of some already added dotfile
             # we should first desymlink the children
-            desymlink_dir(dotfile_path, state.file_dir, Path.home())
+            # desymlink_dir(dotfile_path, state.file_dir, Path.home())
             # then remove that the children were added
             state.remove_children_in_added_dir(str(relative_path))
 
         state.add_added_dir(str(relative_path))
         state.copy_dir_to_repo(resource)
-        file_subtree = create_tree(
-            state,
-            state.file_dir / relative_path,
-            state.added_dirs,
-        )
-        symlink_and_backup_tree(file_subtree, state)
-
     else:
         dotfile_path.parent.mkdir(exist_ok=True, parents=True)
         shutil.copy(resource, dotfile_path)
-        if not state.is_excluded(relative_path):
-            symlink_and_backup_item(
-                dotfile_path,
-                state.file_dir,
-                Path.home(),
-                state.get_app_data_dir(create=True) / state.BACKUP_DIR,
-            )
 
-    success(f"added \033[3m{path}\033[0m.")
+    file_tree.resymlink()
+
+    success(f"added \033[3m{relative_path}\033[0m.")

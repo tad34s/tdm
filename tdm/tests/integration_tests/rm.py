@@ -59,7 +59,6 @@ def test_rm_partially_symlinked(tmp_home, used_repo, runner: CliRunner):
     result = runner.invoke(cli, ["rm", ".config/polybar"])
     assert_result(result, "rm", tmp_home)
     assert not (tmp_home / ".config/polybar/config.ini").is_symlink()
-    assert not (tmp_home / ".config/polybar/config.ini").is_symlink()
     check_files(FILES, tmp_home)
 
     result = runner.invoke(cli, ["add", ".config/polybar"])

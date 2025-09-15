@@ -44,7 +44,7 @@ def file_tree(path: Path, prefix: str = "", old_indent="", indent="   ") -> str:
 
 def assert_result(result: Result, command_name: str, home: Path | None = None):
     print(f"StdOut:\n{result.stdout}")
-    print(f"StdErr:\n{result.stderr}")
+    # print(f"StdErr:\n{result.stderr}")
     print(f"Exception:{result.exception}")
     tracebakc_ig: TracebackType = result.exc_info[2]
     print("Traceback:")

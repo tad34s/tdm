@@ -6,7 +6,6 @@ from shutil import rmtree
 from tdm.config import Config
 from tdm.fs_utils import add_to_set_file, delete, move, read_set_file, remove_from_set_file
 from tdm.print_to_user import error
-from tdm.symlink_utils import desymlink_dir, desymlink_fork, symlink_and_backup_item
 
 APP_NAME = "tdm"
 
@@ -15,7 +14,6 @@ class State:
     BASE_PROFILE = "base"
     FORK_DIR_NAME = "forks"
     FILE_DIR_NAME = "files"
-    FORK_BACKUP_DIR = "base_files"
     BACKUP_DIR = "original_files"
     ADDED_DIRS = "added_dirs"
     REPO_DATA_DIR = ".tdm"
@@ -57,12 +55,6 @@ class State:
 
     def backup_location(self, create: bool = False) -> Path:
         path = self.get_app_data_dir() / self.BACKUP_DIR
-        if create:
-            path.mkdir(exist_ok=True, parents=True)
-        return path
-
-    def fork_backup_location(self, create: bool = False) -> Path:
-        path = self.get_repo_data_dir() / self.FORK_BACKUP_DIR
         if create:
             path.mkdir(exist_ok=True, parents=True)
         return path
@@ -137,9 +129,7 @@ class State:
         return any(x in str(relative_path) for x in self.config.exclude)
 
     def get_relative_path(self, resource: Path) -> Path:
-        if self.fork_backup_location() in resource.parents:
-            relative_path = resource.relative_to(self.fork_backup_location())
-        elif self.fork_dir in resource.parents:
+        if self.fork_dir in resource.parents:
             relative_path = resource.relative_to(self.fork_dir)
         elif self.file_dir in resource.parents:
             relative_path = resource.relative_to(self.file_dir)
@@ -198,6 +188,10 @@ class State:
         return False
 
     def is_forked_by_current_profile(self, relative_path: Path) -> bool:
+        fork_path = self.fork_dir / relative_path
+        if fork_path.exists() and fork_path.is_file():
+            return True
+
         if str(relative_path) in self.forked_dirs:
             return True
 
@@ -251,68 +245,6 @@ class State:
         except Exception as e:
             error(f"Failed to execute bootstrap: {e}.")
 
-    def apply_forks(self) -> None:
-        """Symlink each fork to source"""
-
-        def recursively_symlink_forks(directory: Path, forked_dirs: set[str]) -> None:
-            for item in directory.iterdir():
-                if item.name == self.FORKED_DIRS_FILE:
-                    continue
-                if item.is_file(follow_symlinks=True) or (
-                    item.is_dir() and str(item.relative_to(self.fork_dir)) in forked_dirs
-                ):
-                    symlink_and_backup_item(
-                        item,
-                        self.fork_dir,
-                        self.file_dir,
-                        self.get_repo_data_dir(create=True) / self.FORK_BACKUP_DIR,
-                    )
-                elif item.is_dir(follow_symlinks=True):
-                    recursively_symlink_forks(item, forked_dirs)
-
-        profile_forks = self.fork_dir
-        if not profile_forks.exists():
-            return
-
-        recursively_symlink_forks(profile_forks, self.forked_dirs)
-
-    def unapply_forks(self) -> None:
-        """Desymlink each fork from source."""
-
-        def recursively_desymlink_forks(src_dir: Path) -> None:
-            for item in src_dir.iterdir():
-                if item.is_symlink():
-                    desymlink_fork(
-                        item,
-                        self.file_dir,
-                        self.get_repo_data_dir(create=True) / self.FORK_BACKUP_DIR,
-                    )
-                elif item.is_dir(follow_symlinks=True):
-                    recursively_desymlink_forks(item)
-
-        recursively_desymlink_forks(self.file_dir)
-
-    def symlink(self) -> None:
-        """Symlink necessary dotfiles"""
-        from tdm.file_tree import create_tree, symlink_and_backup_tree
-
-        self.apply_forks()
-        added_dirs = self.added_dirs
-        root_file_node = create_tree(
-            self,
-            self.file_dir,
-            added_dirs,
-        )
-        symlink_and_backup_tree(root_file_node, self)
-
-    def desymlink(self, keep: bool = False) -> None:
-        """Desymlink all links made by the current state"""
-
-        backup_location = self.file_dir if keep else self.backup_location()
-        desymlink_dir(self.file_dir, self.file_dir, Path.home(), backup_location, copy=keep)
-
-        self.unapply_forks()
-
     def remove_backup(self, relative_path: Path):
         backup = self.get_app_data_dir() / self.BACKUP_DIR / relative_path
         if backup.exists():
@@ -321,6 +253,8 @@ class State:
     def copy_dir_to_repo(self, real_dir: Path) -> None:
         for item in real_dir.iterdir():
             if any(x in str(item) for x in self.config.ignore):
+                continue
+            if item.is_symlink() and (self.file_dir in item.readlink().parents):
                 continue
             if item.is_dir():
                 self.copy_dir_to_repo(item)
