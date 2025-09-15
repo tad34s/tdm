@@ -3,9 +3,9 @@ from pathlib import Path
 
 import click
 
-from tdm.file_tree import FileTree
 from tdm.print_to_user import error, success, warning
 from tdm.state import State
+from tdm.symlink_manager import SymlinkManager
 
 
 @click.command
@@ -38,8 +38,7 @@ def add(path: str):
             ask_continue=True,
         )
 
-    # pdb.set_trace()
-    file_tree = FileTree(state, state.file_dir, backup_location=state.backup_location())
+    symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
 
     if resource.is_dir():
         if dotfile_path.exists():
@@ -55,6 +54,6 @@ def add(path: str):
         dotfile_path.parent.mkdir(exist_ok=True, parents=True)
         shutil.copy(resource, dotfile_path)
 
-    file_tree.resymlink()
+    symlink_manager.patch()
 
     success(f"added \033[3m{relative_path}\033[0m.")

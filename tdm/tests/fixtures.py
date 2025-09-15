@@ -21,6 +21,35 @@ FILES: list[File] = [
     ]
 ]
 
+sample_config = """
+bootstrap = ""  # no script
+
+# files or directories to ignore when adding a whole repository
+ignore = [ 
+    ".lazy-lock.json"
+]
+
+# files or directories that are in the files.toml but we do not want to symlink them
+exclude = [".gitconfig"]
+
+[linux-dev]   
+bootstrap = "linux.sh"  # overriding
+include = [".gitconfig"] # overriding exclusion
+
+[linux-dev-notebook]   
+bootstrap = "linux.sh"  # overriding
+include = [".gitconfig"] # overriding exclusion
+
+[mac]
+bootstrap = "mac.sh"   # overriding
+exclude = ["picom.conf"] # adding to exclusion
+
+[server] 
+use-only = [  # if specifies will only use files or directories provided here
+    "nvim"
+]
+"""
+
 
 @pytest.fixture
 def runner() -> CliRunner:
@@ -52,6 +81,7 @@ def tdm_prepped_repo(tmp_home: Path, runner: CliRunner) -> Path:
     input_stream = io.StringIO("\n")  # Simulates pressing Enter
     result = runner.invoke(cli, ["init", "--git", str(repo)], input="\n")
     assert_result(result, "Init", tmp_home)
+    (repo / "config.toml").write_text(sample_config)
 
     files_dir = repo / "files"
 
@@ -103,6 +133,7 @@ def used_repo(tmp_home: Path, runner: CliRunner):
 
     result = runner.invoke(cli, ["init", str(repo)])
     assert result.exit_code == 0, f"Init failed: {result.output}"
+    (repo / "config.toml").write_text(sample_config)
 
     result = runner.invoke(cli, ["deploy", str(repo)])
     assert result.exit_code == 0, f"Deploy failed: {result.output}"
@@ -141,6 +172,7 @@ def additional_dotfiles(tmp_home: Path, runner: CliRunner):
 
     result = runner.invoke(cli, ["init", str(repo)])
     assert result.exit_code == 0, f"Init failed: {result.output}"
+    (repo / "config.toml").write_text(sample_config)
 
     result = runner.invoke(cli, ["deploy", str(repo)])
     assert result.exit_code == 0, f"Deploy failed: {result.output}"

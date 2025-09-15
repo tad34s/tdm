@@ -54,7 +54,7 @@ class SymlinkNode:
         )
 
 
-class FileTree:
+class SymlinkManager:
     def __init__(
         self,
         state: State,
@@ -83,7 +83,7 @@ class FileTree:
             curr_src_dir = queue.pop(0)
 
             for child in curr_src_dir.iterdir():
-                child_relative = child.relative_to(state.file_dir)
+                child_relative = child.relative_to(src_dir)
                 target_path = target_dir_base / child_relative
                 if (
                     target_path.exists()
@@ -102,32 +102,6 @@ class FileTree:
                 if child.is_dir():
                     queue.append(child)
         return output
-
-    def resymlink(self):
-        new_nodes = FileTree.create_tree(
-            self.state, self.src_dir, self.target_dir, self.backup_location
-        )
-
-        # print(new_nodes[0], self.nodes[0])
-        nodes_indices = set(range(len(self.nodes)))
-        new_nodes_indices = set(range(len(new_nodes)))
-        # found matches
-        for i, node in enumerate(self.nodes):
-            for j, new_node in enumerate(new_nodes):
-                if new_node == node:
-                    nodes_indices.remove(i)
-                    new_nodes_indices.remove(j)
-                    break
-
-        # go over not matched
-        for i in nodes_indices:
-            node = self.nodes[i]
-            node.desymlink(use_backup=True)
-        for j in new_nodes_indices:
-            new_node = new_nodes[j]
-            new_node.symlink()
-
-        self.nodes = new_nodes
 
     def symlink(self):
         for node in self.nodes:
@@ -223,7 +197,7 @@ class FileTree:
             # we have to continue recursion
             if state.is_forked_by_current_profile(child_relative):
                 if child.is_dir():
-                    children_in_fork, could_symlink_child = FileTree.__create_tree_rec(
+                    children_in_fork, could_symlink_child = SymlinkManager.__create_tree_rec(
                         state,
                         state.fork_dir / child_relative,
                         target_dir_base,
@@ -262,7 +236,7 @@ class FileTree:
                 )
 
             elif child.is_dir(follow_symlinks=True):
-                new_children, could_symlink_child = FileTree.__create_tree_rec(
+                new_children, could_symlink_child = SymlinkManager.__create_tree_rec(
                     state,
                     child,
                     target_dir_base,
@@ -303,7 +277,7 @@ class FileTree:
     def create_tree(
         state: State, src_dir: Path, target_dir: Path, backup_location: Path | None
     ) -> list[SymlinkNode]:
-        nodes, _ = FileTree.__create_tree_rec(
+        nodes, _ = SymlinkManager.__create_tree_rec(
             state,
             src_dir,
             target_dir,
@@ -335,7 +309,7 @@ class FileTree:
                 self.kickout_ignored(item_node)
 
     def patch(self):
-        new_nodes = FileTree.create_tree(
+        new_nodes = SymlinkManager.create_tree(
             self.state, self.src_dir, self.target_dir, self.backup_location
         )
 

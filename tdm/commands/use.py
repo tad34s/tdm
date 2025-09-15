@@ -1,8 +1,8 @@
 import click
 
-from tdm.file_tree import FileTree
 from tdm.print_to_user import error, success
 from tdm.state import State
+from tdm.symlink_manager import SymlinkManager
 
 
 @click.command()
@@ -15,10 +15,10 @@ def use(profile_name: str, bootstrap: bool):
         error("No tdm repo deployed.")
         return
 
-    file_tree = FileTree(state, state.file_dir, backup_location=state.backup_location())
+    symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
     new_state = State(state.repo, profile_name)
-    file_tree.state = new_state
-    file_tree.resymlink()
+    symlink_manager.state = new_state
+    symlink_manager.patch()
     new_state.save()
     if bootstrap:
         new_state.run_bootstrap()

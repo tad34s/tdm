@@ -6,32 +6,19 @@ import click
 from tdm.print_to_user import error, success
 
 sample_config = """
-bootstrap = ""  # no script
+bootstrap = ""  
 
 # files or directories to ignore when adding a whole repository
-ignore = [ 
-    ".lazy-lock.json"
-]
+ignore = []
 
 # files or directories that are in the files.toml but we do not want to symlink them
-exclude = [".gitconfig"]
+exclude = []
 
-[linux-dev]   
-bootstrap = "linux.sh"  # overriding
-include = [".gitconfig"] # overriding exclusion
-
-[linux-dev-notebook]   
-bootstrap = "linux.sh"  # overriding
-include = [".gitconfig"] # overriding exclusion
-
-[mac]
-bootstrap = "mac.sh"   # overriding
-exclude = ["picom.conf"] # adding to exclusion
-
-[server] 
-use-only = [  # if specifies will only use files or directories provided here
-    "nvim"
-]
+# list profile like so
+# [profile-name]   
+# bootstrap = ""  
+# ignore = []
+# exclude = []
 """
 
 

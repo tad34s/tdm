@@ -141,3 +141,17 @@ def remove_relative(absolute_path: Path, relative_suffix: Path):
         assert part == base.name, f"{part}!={base.name} part of the relative path does not match"
         base = base.parent
     return base
+
+
+def symlink_item(item: Path, original_base: Path, new_base: Path) -> None:
+    """Create new symlink in the new_base pointing to the item in the original_base.
+    Will delete the path in the new base if exists.
+    """
+    relative_path = item.relative_to(original_base)
+    target_path = new_base / relative_path
+    if target_path.exists():
+        if target_path.is_symlink() and target_path.readlink() == item:
+            return
+        delete(target_path)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.symlink_to(item, target_is_directory=item.is_dir())

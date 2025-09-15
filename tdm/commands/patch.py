@@ -4,9 +4,9 @@ from shutil import copy
 import click
 
 import tdm.tests.utils as ts
-from tdm.file_tree import FileTree
 from tdm.print_to_user import error, success
 from tdm.state import State
+from tdm.symlink_manager import SymlinkManager
 
 
 def add_new_children(relative_path: Path, state: State):
@@ -44,7 +44,7 @@ def patch():
         error("No tdm repo deployed.")
         return
 
-    file_tree = FileTree(state, state.file_dir, backup_location=state.backup_location())
+    symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
     print("stuff", ts.file_tree(Path.home()))
     for dir in state.added_dirs:
         if not (state.file_dir / dir).exists():
@@ -55,5 +55,5 @@ def patch():
         print("patching", Path(dir))
         add_new_children(Path(dir), state)
 
-    file_tree.patch()
+    symlink_manager.patch()
     success("patched.")

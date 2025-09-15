@@ -1,10 +1,9 @@
 import shutil
 import subprocess
 from pathlib import Path
-from shutil import rmtree
 
+import tdm.fs_utils as fs
 from tdm.config import Config
-from tdm.fs_utils import add_to_set_file, delete, move, read_set_file, remove_from_set_file
 from tdm.print_to_user import error
 
 APP_NAME = "tdm"
@@ -40,12 +39,12 @@ class State:
     @property
     def forked_dirs(self) -> set[str]:
         forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
-        return read_set_file(forked_dirs_file)
+        return fs.read_set_file(forked_dirs_file)
 
     @property
     def added_dirs(self) -> set[str]:
         added_dirs_file = self.repo / self.REPO_DATA_DIR / self.ADDED_DIRS
-        return read_set_file(added_dirs_file)
+        return fs.read_set_file(added_dirs_file)
 
     @property
     def profile_fork_dirs(self):
@@ -62,11 +61,11 @@ class State:
     def add_forked_dir(self, forked_dir: str) -> None:
         forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
 
-        assert add_to_set_file(forked_dirs_file, forked_dir)
+        assert fs.add_to_set_file(forked_dirs_file, forked_dir)
 
     def remove_forked_dir(self, forked_dir: str) -> None:
         forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
-        assert remove_from_set_file(forked_dirs_file, forked_dir)
+        assert fs.remove_from_set_file(forked_dirs_file, forked_dir)
 
     def remove_children_in_forked_dir(self, forked_dir: str) -> None:
         """Goes through each profiles forks and removes any children of forked_dir from the
@@ -74,9 +73,9 @@ class State:
         """
         for profile_fork_dir in self.profile_fork_dirs:
             forked_dirs_file = profile_fork_dir / self.FORKED_DIRS_FILE
-            for str_path in read_set_file(forked_dirs_file):
+            for str_path in fs.read_set_file(forked_dirs_file):
                 if str_path.startswith(forked_dir):  # is a child
-                    remove_from_set_file(forked_dirs_file, str_path)
+                    fs.remove_from_set_file(forked_dirs_file, str_path)
 
     def delete_forks(self, relative_fork_path: Path) -> None:
         """Delete all versions of this dotfile/dir for each profile it is present in.
@@ -87,18 +86,18 @@ class State:
             forked_item = profile_fork_dir / relative_fork_path
             if not forked_item.exists():
                 continue
-            delete(forked_item)
+            fs.delete(forked_item)
 
             # if str(relative_fork_path) in self.forked_dirs:
             #     self.remove_forked_dir(str(relative_fork_path))
 
     def add_added_dir(self, added_dir: str) -> None:
         added_dirs_file = self.get_repo_data_dir(create=True) / self.ADDED_DIRS
-        assert add_to_set_file(added_dirs_file, added_dir)
+        assert fs.add_to_set_file(added_dirs_file, added_dir)
 
     def remove_added_dir(self, added_dir: str) -> None:
         added_dirs_file = self.get_repo_data_dir(create=True) / self.ADDED_DIRS
-        assert remove_from_set_file(added_dirs_file, added_dir)
+        assert fs.remove_from_set_file(added_dirs_file, added_dir)
 
     def remove_children_in_added_dir(self, added_dir: str) -> None:
         for str_path in self.added_dirs:
@@ -153,9 +152,9 @@ class State:
         state_file = app_dir / self.STATE_FILE_NAME
         backup_dir = app_dir / self.BACKUP_DIR
         if state_file.exists():
-            delete(state_file)
+            fs.delete(state_file)
         if backup_dir.exists():
-            delete(backup_dir)
+            fs.delete(backup_dir)
 
     def is_managed(self, relative_path: Path) -> bool:
         dotfile_path = self.file_dir / relative_path
@@ -177,7 +176,7 @@ class State:
     def is_forked(self, relative_path: Path) -> bool:
         for profile_fork_dir in self.profile_fork_dirs:
             forked_dirs_file = profile_fork_dir / self.FORKED_DIRS_FILE
-            forked_dirs = read_set_file(forked_dirs_file)
+            forked_dirs = fs.read_set_file(forked_dirs_file)
             if str(relative_path) in forked_dirs:
                 return True
 
@@ -248,7 +247,7 @@ class State:
     def remove_backup(self, relative_path: Path):
         backup = self.get_app_data_dir() / self.BACKUP_DIR / relative_path
         if backup.exists():
-            delete(backup)
+            fs.delete(backup)
 
     def copy_dir_to_repo(self, real_dir: Path) -> None:
         for item in real_dir.iterdir():
@@ -264,14 +263,12 @@ class State:
                 dest_dotfiles.parent.mkdir(exist_ok=True, parents=True)
                 shutil.copy(item, dest_dotfiles)
 
-    def kickout_ignored(self, curr_src_dir: Path):
+    def clean_ignored_from_repo(self, curr_src_dir: Path):
         for item in curr_src_dir.iterdir():
             if self.is_ignored(item):
                 relative_path = item.relative_to(self.file_dir)
                 target_path = Path.home() / relative_path
                 target_path.parent.mkdir(exist_ok=True, parents=True)
-                if target_path.is_dir():
-                    rmtree(target_path)
-                move(item, target_path)
+                fs.move_skip_present(item, target_path)
             if item.is_dir():
-                self.kickout_ignored(item)
+                self.clean_ignored_from_repo(item)

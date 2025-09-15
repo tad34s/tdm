@@ -22,7 +22,7 @@ def git(git_args) -> None:
         error("No tdm repo deployed.")
         return
 
-    state.kickout_ignored(state.file_dir)
+    state.clean_ignored_from_repo(state.file_dir)
 
     try:
         # Execute git with captured arguments

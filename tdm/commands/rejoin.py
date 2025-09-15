@@ -3,9 +3,9 @@ from pathlib import Path
 import click
 
 import tdm.fs_utils as fs
-from tdm.file_tree import FileTree
 from tdm.print_to_user import error, success
 from tdm.state import State
+from tdm.symlink_manager import SymlinkManager
 
 
 @click.command
@@ -28,15 +28,9 @@ def rejoin(path: str, keep: bool):
         error("No tdm repo deployed.")
         return
 
-    file_tree = FileTree(state, state.file_dir, backup_location=state.backup_location())
+    symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
 
-    # TODO: to jde zmenit na get relative path ne?
-    if state.file_dir in resource.parents:
-        relative_path = resource.relative_to(state.file_dir)
-    elif state.fork_dir in resource.parents:
-        relative_path = resource.relative_to(state.fork_dir)
-    else:
-        relative_path = resource.relative_to(Path.home())
+    relative_path = state.get_relative_path(resource)
 
     dotfile_path = state.file_dir / relative_path
     if not dotfile_path.exists():
@@ -57,12 +51,7 @@ def rejoin(path: str, keep: bool):
     else:
         fs.delete(fork_path)
         fs.clean_parents(fork_path)
-    # desymlink_path(fork_path, state.fork_dir, state.file_dir, backup_location)
 
-    # when keep is True, the backup location is fork dir, which results in moving the file from fork dir -> no longer exists
-    # if fork_path.exists():
-    #     delete(fork_path)
-
-    file_tree.resymlink()
+    symlink_manager.patch()
 
     success(f"rejoined \033[3m{relative_path}\033[0m.")

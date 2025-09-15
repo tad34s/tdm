@@ -3,10 +3,9 @@ from pathlib import Path
 import click
 
 import tdm.fs_utils as fs
-from tdm.file_tree import FileTree
 from tdm.print_to_user import error, success, warning
 from tdm.state import State
-from tdm.symlink_utils import symlink_item
+from tdm.symlink_manager import SymlinkManager
 
 
 def has_symlink_in_relative_path(base_path, relative_path):
@@ -67,7 +66,7 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         )
         return
 
-    file_tree = FileTree(state, state.file_dir, backup_location=state.backup_location())
+    symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
 
     relative_path = state.get_relative_path(resource)
     dotfile_path = state.file_dir / relative_path
@@ -111,7 +110,7 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         origin_fork_dir = get_the_other_fork(state, profile)
         path_in_origin_fork_dir = origin_fork_dir / relative_path
         if symlink:
-            symlink_item(path_in_origin_fork_dir, origin_fork_dir, state.fork_dir)
+            fs.symlink_item(path_in_origin_fork_dir, origin_fork_dir, state.fork_dir)
         else:
             dest_path.parent.mkdir(exist_ok=True, parents=True)
             # replacing original fork
@@ -125,6 +124,6 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         state.add_forked_dir(str(relative_path))
 
     # Apply the fork to file dir
-    file_tree.resymlink()
+    symlink_manager.patch()
 
     success(f"forked \033[3m{relative_path}\033[0m.")
