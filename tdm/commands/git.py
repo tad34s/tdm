@@ -27,13 +27,16 @@ def git(git_args) -> None:
     try:
         # Execute git with captured arguments
         result = subprocess.run(
-            ["git", *git_args], check=False, cwd=state.repo, capture_output=False
+            ["git", *git_args], check=False, cwd=state.repo, capture_output=True
         )
 
-        if std_out := result.stdout.decode():
-            print_git(result.stdout.decode())
-        if err_out := result.stderr.decode():
-            print_git(err_out, error=True)
+        if result.stdout:
+            if std_out := result.stdout.decode():
+                print_git(std_out)
+
+        if result.stderr:
+            if err_out := result.stderr.decode():
+                print_git(err_out, error=True)
 
     except Exception as e:
         error(f"Failed to execute git: {e}")
