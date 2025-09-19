@@ -3,6 +3,7 @@ from tdm.commands.deploy import deploy
 from tdm.commands.fork import fork
 from tdm.commands.git import git
 from tdm.commands.init import init
+from tdm.commands.merge import merge
 from tdm.commands.patch import patch
 from tdm.commands.rejoin import rejoin
 from tdm.commands.rm import rm

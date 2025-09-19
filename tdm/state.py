@@ -30,7 +30,10 @@ class State:
         self.file_dir = self.repo / self.FILE_DIR_NAME
         self.fork_dir = self.repo / self.FORK_DIR_NAME / self.profile
 
-    def fork_dir_p(self, profile: str) -> Path:
+    def fork_dir_profile(self, profile: str) -> Path:
+        if profile == self.BASE_PROFILE:
+            return self.file_dir
+
         return self.repo / self.FORK_DIR_NAME / profile
 
     @property
@@ -90,9 +93,6 @@ class State:
             if not forked_item.exists():
                 continue
             fs.delete(forked_item)
-
-            # if str(relative_fork_path) in self.forked_dirs:
-            #     self.remove_forked_dir(str(relative_fork_path))
 
     def add_added_dir(self, added_dir: str) -> None:
         added_dirs_file = self.get_repo_data_dir(create=True) / self.ADDED_DIRS

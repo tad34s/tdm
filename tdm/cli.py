@@ -6,6 +6,7 @@ from tdm.commands import (
     fork,
     git,
     init,
+    merge,
     patch,
     rejoin,
     rm,
@@ -33,3 +34,4 @@ cli.add_command(patch)
 cli.add_command(git)
 cli.add_command(status)
 cli.add_command(update)
+cli.add_command(merge)

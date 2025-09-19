@@ -27,7 +27,7 @@ def git(git_args) -> None:
     try:
         # Execute git with captured arguments
         result = subprocess.run(
-            ["git", *git_args], check=False, cwd=state.repo, capture_output=True
+            ["git", *git_args], check=False, cwd=state.repo, capture_output=False
         )
 
         if std_out := result.stdout.decode():

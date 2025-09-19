@@ -32,7 +32,7 @@ def get_the_other_fork(state: State, profile: str) -> Path:
     if profile == state.BASE_PROFILE:
         origin_fork_dir = state.file_dir
     else:
-        origin_fork_dir = state.fork_dir_p(profile)
+        origin_fork_dir = state.fork_dir_profile(profile)
 
     return origin_fork_dir
 
@@ -92,7 +92,7 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         warning("You are forking a parent of an already made fork.", ask_continue=True)
 
     if profile:
-        path_in_origin_fork_dir = get_the_other_fork(state, profile) / relative_path
+        path_in_origin_fork_dir = state.fork_dir_profile(profile) / relative_path
         if not path_in_origin_fork_dir.exists():
             error("The profile specified did not fork the selected path.")
 
@@ -107,7 +107,7 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         state.remove_children_in_forked_dir(str(relative_path))
 
     if profile:
-        origin_fork_dir = get_the_other_fork(state, profile)
+        origin_fork_dir = state.fork_dir_profile(profile)
         path_in_origin_fork_dir = origin_fork_dir / relative_path
         if symlink:
             fs.symlink_item(path_in_origin_fork_dir, origin_fork_dir, state.fork_dir)
