@@ -17,7 +17,6 @@ class SymlinkManager:
         self.src_dir = src_dir
         self.state = state
         self.target_dir = target_dir if target_dir else Path.home()
-        print("Target dir", self.target_dir)
         self.backup_location = backup_location
         self.nodes = self.current_tree(
             self.state, self.src_dir, self.target_dir, self.backup_location
