@@ -5,6 +5,7 @@ from pathlib import Path
 import tdm.fs_utils as fs
 from tdm.config import Config
 from tdm.print_to_user import error
+from tdm.symlink_node import SymlinkNode
 
 APP_NAME = "tdm"
 
@@ -15,6 +16,7 @@ class State:
     FILE_DIR_NAME = "files"
     BACKUP_DIR = "original_files"
     ADDED_DIRS = "added_dirs"
+    SYMLINKED_NODES = "symlinked_nodes"
     REPO_DATA_DIR = ".tdm"
     STATE_FILE_NAME = "state"
     BINARY_DIR = "bin"
@@ -25,13 +27,8 @@ class State:
         self.profile = profile
         self.config = Config.load(repo, profile)
 
-    @property
-    def file_dir(self) -> Path:
-        return self.repo / self.FILE_DIR_NAME
-
-    @property
-    def fork_dir(self) -> Path:
-        return self.repo / self.FORK_DIR_NAME / self.profile
+        self.file_dir = self.repo / self.FILE_DIR_NAME
+        self.fork_dir = self.repo / self.FORK_DIR_NAME / self.profile
 
     def fork_dir_p(self, profile: str) -> Path:
         return self.repo / self.FORK_DIR_NAME / profile
@@ -45,6 +42,12 @@ class State:
     def added_dirs(self) -> set[str]:
         added_dirs_file = self.repo / self.REPO_DATA_DIR / self.ADDED_DIRS
         return fs.read_set_file(added_dirs_file)
+
+    @property
+    def symlinked_nodes(self) -> set[str]:
+        # the relative paths of nodes that were symlinked
+        symlinked_nodes_file = self.repo / self.REPO_DATA_DIR / self.SYMLINKED_NODES
+        return fs.read_set_file(symlinked_nodes_file)
 
     @property
     def profile_fork_dirs(self):
@@ -103,6 +106,33 @@ class State:
         for str_path in self.added_dirs:
             if str_path.startswith(added_dir):  # is a child
                 self.remove_added_dir(str_path)
+
+    def update_symlinked_nodes(
+        self,
+        new_symlinked_nodes: list[SymlinkNode],
+        old_symlinked_nodes: set[str] | None = None,
+    ) -> None:
+        symlinked_nodes_file = self.repo / self.REPO_DATA_DIR / self.SYMLINKED_NODES
+        if old_symlinked_nodes is None and symlinked_nodes_file.exists():
+            old_symlinked_nodes = self.symlinked_nodes
+
+        if not new_symlinked_nodes:
+            if symlinked_nodes_file.exists():
+                symlinked_nodes_file.unlink()
+            return
+
+        if not symlinked_nodes_file.exists():
+            symlinked_nodes_file.touch()
+
+        new_symlinked_nodes_set = set(str(x.relative_path) for x in new_symlinked_nodes)
+        if old_symlinked_nodes and old_symlinked_nodes.issubset(new_symlinked_nodes_set):
+            with symlinked_nodes_file.open("a") as f:
+                for entry in new_symlinked_nodes_set - old_symlinked_nodes:
+                    f.write(entry + "\n")
+        else:
+            with symlinked_nodes_file.open("w") as f:
+                for entry in new_symlinked_nodes_set:
+                    f.write(entry + "\n")
 
     @classmethod
     def current(cls) -> "State | None":

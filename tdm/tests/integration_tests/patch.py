@@ -129,3 +129,33 @@ def test_patch_relinking_with_ignored(tmp_home: Path, used_repo: Path, runner: C
     result = runner.invoke(cli, ["patch"])
     assert_result(result, "Patch")
     print(file_tree(tmp_home))
+
+
+def test_patch_removed_files_in_repo(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    """Test patching correctly clears symlinks that point to the repo but the dotfile is no longer there.
+    This can happen for example when a different machine removes some dotfiles, and we pull these changes.
+    """
+
+    dotfile = used_repo / "files" / ".config/picom.conf"
+    dotfile.unlink()
+
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch", tmp_home)
+
+    # assert not (tmp_home / ".config/picom.conf").exists(follow_symlinks=False)
+
+
+def test_patch_removed_files_in_repo_added_dir(tmp_home: Path, used_repo: Path, runner: CliRunner):
+    """Test patching correctly clears symlinks that point to the repo but the dotfile is no longer there.
+    This can happen for example when a different machine removes some dotfiles,
+    and we pull these changes. Here we also check if it works correctly when
+    the broken symlink is in a an added dir which is partially symlinked.
+    """
+
+    dotfile = used_repo / "files" / ".config/rofi/scripts/launcher"
+    dotfile.unlink()
+
+    result = runner.invoke(cli, ["patch"])
+    assert_result(result, "Patch", tmp_home)
+
+    assert not (tmp_home / ".config/rofi/scripts/launcher").exists(follow_symlinks=False)

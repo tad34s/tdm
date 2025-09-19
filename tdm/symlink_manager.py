@@ -1,57 +1,9 @@
-from dataclasses import dataclass
 from pathlib import Path
+from typing import Generator
 
 import tdm.fs_utils as fs
 from tdm.state import State
-
-
-@dataclass
-class SymlinkNode:
-    relative_path: Path
-    src_base: Path
-    target_base: Path
-    backup_base: Path | None = None
-
-    def __post_init__(self):
-        self.src_path = self.src_base / self.relative_path
-        self.target_path = self.target_base / self.relative_path
-        self.backup_path = self.backup_base / self.relative_path if self.backup_base else None
-
-    def symlink(self):
-        fs.ensure_parents(self.target_path)
-
-        if self.target_path.exists():
-            if self.target_path.is_symlink() and self.target_path.readlink() == self.src_path:
-                return
-            if self.backup_path:
-                fs.ensure_parents(self.backup_path)
-                fs.move_skip_present(self.target_path, self.backup_path)
-            else:
-                fs.delete(self.target_path)
-        self.target_path.symlink_to(self.src_path)
-
-    def desymlink(self, use_backup: bool):
-        assert self.target_path.is_symlink(), (
-            f"{self.target_path} - target is not a symlink when desymlinking"
-        )
-        self.target_path.unlink()
-        if self.backup_path and use_backup and self.backup_path.exists():
-            fs.move(self.backup_path, self.target_path)
-            fs.clean_parents(self.backup_path)
-
-    def desymlink_keep(self):
-        assert self.target_path.is_symlink(), "target is not a symlink when desymlinking"
-        self.target_path.unlink()
-        fs.copy(self.src_path, self.target_path)
-
-    def __eq__(self, value: object, /) -> bool:
-        if type(value) is not type(self):
-            return False
-        return (
-            self.src_path == value.src_path
-            and self.target_path == value.target_path
-            and self.backup_path == value.backup_path
-        )
+from tdm.symlink_node import SymlinkNode
 
 
 class SymlinkManager:
@@ -65,55 +17,58 @@ class SymlinkManager:
         self.src_dir = src_dir
         self.state = state
         self.target_dir = target_dir if target_dir else Path.home()
+        print("Target dir", self.target_dir)
         self.backup_location = backup_location
         self.nodes = self.current_tree(
             self.state, self.src_dir, self.target_dir, self.backup_location
         )
 
     @staticmethod
+    def symlinked_nodes_iter(
+        state: State, src_dir: Path, target_dir_base: Path, backup_location: Path | None
+    ) -> Generator[SymlinkNode]:
+        """Iterates over currently symlinked nodes."""
+        for relative_path_str in state.symlinked_nodes:
+            target_path = target_dir_base / relative_path_str
+            if not target_path.is_symlink():
+                continue
+            relative_path = Path(relative_path_str)
+            yield SymlinkNode(
+                relative_path,
+                fs.remove_relative(target_path.readlink(), relative_path),
+                target_dir_base,
+                backup_base=backup_location,
+            )
+
+    @staticmethod
     def current_tree(
         state: State, src_dir: Path, target_dir_base: Path, backup_location: Path | None
     ) -> list[SymlinkNode]:
-        """Get the current symlink layout."""
-        queue: list[Path] = [src_dir]
-        output: list[SymlinkNode] = []
-
-        # Using BFS to walk through the files in the files dir in repo
-        while queue:
-            curr_src_dir = queue.pop(0)
-
-            for child in curr_src_dir.iterdir():
-                child_relative = child.relative_to(src_dir)
-                target_path = target_dir_base / child_relative
-                if (
-                    target_path.exists()
-                    and target_path.is_symlink()
-                    and state.repo in target_path.readlink().parents
-                ):
-                    output.append(
-                        SymlinkNode(
-                            child_relative,
-                            fs.remove_relative(target_path.readlink(), child_relative),
-                            target_dir_base,
-                            backup_base=backup_location,
-                        )
-                    )
-                    continue
-                if child.is_dir():
-                    queue.append(child)
+        output = []
+        iter = SymlinkManager.symlinked_nodes_iter(state, src_dir, target_dir_base, backup_location)
+        for node in iter:
+            if not node.src_path.exists():  # the dotfile was somehow deleted, can happen
+                print("unlinking", node.target_path)
+                node.target_path.unlink()  # we delete the broken symlink
+            else:
+                output.append(node)
         return output
 
     def symlink(self):
         for node in self.nodes:
             node.symlink()
+        self.state.update_symlinked_nodes(self.nodes)
 
     def desymlink(self, use_backup: bool = True):
         for node in self.nodes:
             node.desymlink(use_backup)
+        self.state.update_symlinked_nodes([])
 
     def desymlink_keep(self):
         for node in self.nodes:
             node.desymlink_keep()
+
+        self.state.update_symlinked_nodes([])
 
     def get_node(self, relative_path: Path) -> SymlinkNode | None:
         target_path = self.target_dir / relative_path
@@ -143,6 +98,7 @@ class SymlinkManager:
             if node == saved_node:
                 self.nodes.pop(i)
                 break
+        self.state.update_symlinked_nodes(self.nodes)
 
     def remove_node_keep(self, node: SymlinkNode):
         if node.target_path.is_symlink():
@@ -332,3 +288,4 @@ class SymlinkManager:
             new_node.symlink()
 
         self.nodes = new_nodes
+        self.state.update_symlinked_nodes(self.nodes)

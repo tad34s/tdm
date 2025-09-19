@@ -9,7 +9,7 @@ from tdm.tests.fixtures import *
 from tdm.tests.utils import assert_result
 
 
-def test_git_without_deployment(runner: CliRunner):
+def test_git_without_deployment(runner: CliRunner, tmp_home: Path):
     """Test git command without deployed TDM repo"""
     result = runner.invoke(cli, ["vacate"])
     result = runner.invoke(cli, ["git", "status"])
@@ -72,7 +72,7 @@ def test_git_sees_base_files(used_repo: Path, runner: CliRunner, tmp_home: Path)
     assert ".bashrc" in result.output
 
 
-def test_git_command_failure_propagates(used_repo: Path, runner: CliRunner):
+def test_git_command_failure_propagates(used_repo: Path, runner: CliRunner, tmp_home: Path):
     """Test git command failure propagates exit code"""
     # Invalid git command
     result = runner.invoke(cli, ["git", "invalid-command"])
@@ -80,7 +80,7 @@ def test_git_command_failure_propagates(used_repo: Path, runner: CliRunner):
     assert "invalid-command" in result.stderr
 
 
-def test_git_command_with_flags(used_repo: Path, runner: CliRunner):
+def test_git_command_with_flags(used_repo: Path, runner: CliRunner, tmp_home: Path):
     """Test git command handles flags and arguments"""
     # Create test file
     test_file = used_repo / "files" / "test.txt"

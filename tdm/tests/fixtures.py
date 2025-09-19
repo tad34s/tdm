@@ -15,6 +15,9 @@ FILES: list[File] = [
         (".config/picom.conf", "# My picom config"),
         (".config/polybar/config.ini", "# polybar config"),
         (".config/polybar/launch.sh", "# polybar script config"),
+        (".config/rofi/scripts/ignored_file", ""),
+        (".config/rofi/scripts/launcher", "rofi launcher"),
+        (".config/rofi/scripts/menu", "rofi menu"),
         (".bashrc", "echo hello from bashrc"),
         (".config/nvim/.lazy-lock.json", "{}"),
         (".gitconfig", "# git config"),
@@ -26,7 +29,8 @@ bootstrap = ""  # no script
 
 # files or directories to ignore when adding a whole repository
 ignore = [ 
-    ".lazy-lock.json"
+    ".lazy-lock.json",
+    "ignored_file"
 ]
 
 # files or directories that are in the files.toml but we do not want to symlink them
@@ -132,16 +136,17 @@ def used_repo(tmp_home: Path, runner: CliRunner):
     repo = tmp_home / "dotfiles"
 
     result = runner.invoke(cli, ["init", str(repo)])
-    assert result.exit_code == 0, f"Init failed: {result.output}"
+    assert_result(result, "Init")
     (repo / "config.toml").write_text(sample_config)
 
     result = runner.invoke(cli, ["deploy", str(repo)])
-    assert result.exit_code == 0, f"Deploy failed: {result.output}"
+    assert_result(result, "Deploy")
 
     to_add = [
         tmp_home / ".config/nvim",
         tmp_home / ".config/polybar",
         tmp_home / ".config/picom.conf",
+        tmp_home / ".config/rofi",
         tmp_home / ".bashrc",
     ]
 

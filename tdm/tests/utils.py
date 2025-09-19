@@ -17,7 +17,10 @@ def file_tree(path: Path, prefix: str = "", old_indent="", indent="   ") -> str:
     output = []
     item_name = path.name
     if path.is_symlink():
-        item_name = "\033[36m" + item_name + f" -> {path.readlink()}" + "\033[0m"
+        if path.readlink().exists():
+            item_name = "\033[36m" + item_name + f" -> {path.readlink()}" + "\033[0m"
+        else:
+            item_name = "\x1b[31m" + item_name + f" -> {path.readlink()}" + "\033[0m"
     elif path.is_dir():
         item_name = "\033[34m" + item_name + "/" + "\033[0m"
 

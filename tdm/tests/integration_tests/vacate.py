@@ -34,4 +34,7 @@ def test_vacate_keep(tmp_home: Path, used_repo: Path, runner: CliRunner):
     files.pop(i)
     i = [str(file.path) for file in files].index(".gitconfig")
     files.pop(i)
+
+    i = [str(file.path) for file in files].index(".config/rofi/scripts/ignored_file")
+    files.pop(i)
     check_files(files, used_repo / "files")
