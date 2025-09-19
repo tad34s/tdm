@@ -49,7 +49,7 @@ class State:
     @property
     def symlinked_nodes(self) -> set[str]:
         # the relative paths of nodes that were symlinked
-        symlinked_nodes_file = self.repo / self.REPO_DATA_DIR / self.SYMLINKED_NODES
+        symlinked_nodes_file = self.get_app_data_dir() / self.SYMLINKED_NODES
         return fs.read_set_file(symlinked_nodes_file)
 
     @property
@@ -112,7 +112,7 @@ class State:
         new_symlinked_nodes: list[SymlinkNode],
         old_symlinked_nodes: set[str] | None = None,
     ) -> None:
-        symlinked_nodes_file = self.repo / self.REPO_DATA_DIR / self.SYMLINKED_NODES
+        symlinked_nodes_file = self.get_app_data_dir() / self.SYMLINKED_NODES
         if old_symlinked_nodes is None and symlinked_nodes_file.exists():
             old_symlinked_nodes = self.symlinked_nodes
 
