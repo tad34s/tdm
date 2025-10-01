@@ -16,13 +16,13 @@ class Vertex:
 
 def item_name(path: Path):
     item_name = path.name
+    if path.is_dir():
+        item_name = "\033[34m" + item_name + "/" + "\033[0m"
     if path.is_symlink():
         if path.readlink().exists():
-            item_name = "\033[36m" + item_name + f" -> {path.readlink()}" + "\033[0m"
+            item_name = item_name + "\033[36m" + f" -> {path.readlink()}" + "\033[0m"
         else:
-            item_name = "\x1b[31m" + item_name + f" -> {path.readlink()}" + "\033[0m"
-    elif path.is_dir():
-        item_name = "\033[34m" + item_name + "/" + "\033[0m"
+            item_name = item_name + "\x1b[31m" + f" -> {path.readlink()}" + "\033[0m"
 
     return item_name
 
@@ -37,12 +37,11 @@ def file_tree(path: Path, prefix: str = "", old_indent="", indent="   ") -> str:
         children = sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name))
         count = len(children)
         if count > 4:
-            child_output = file_tree(children[0], "├── ", indent, indent + "|  ")
-            output.append(child_output)
+            item_text = f"{indent}├── {item_name(children[0])}"
+            output.append(item_text)
             output += [f"{indent}."] * 3
-            child_output = file_tree(children[-1], "└── ", indent, indent + "   ")
-            output.append(child_output)
-
+            item_text = f"{indent}└── {item_name(children[-1])}"
+            output.append(item_text)
         else:
             for i, child in enumerate(children):
                 is_last = i == count - 1
@@ -72,7 +71,9 @@ def file_tree_vertex(vertex: Vertex, prefix: str = "", old_indent="", indent="  
 
     if vertex.children:
         count = len(vertex.children)
-        for i, child in enumerate(vertex.children):
+        for i, child in enumerate(
+            sorted(vertex.children, key=lambda x: (not (Path.home() / x.key).is_dir(), x.key.name))
+        ):
             is_last = i == count - 1
             if is_last:
                 new_prefix = "└── "
