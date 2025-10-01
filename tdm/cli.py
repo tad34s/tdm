@@ -11,6 +11,7 @@ from tdm.commands import (
     rejoin,
     rm,
     status,
+    tree,
     update,
     use,
     vacate,
@@ -35,3 +36,4 @@ cli.add_command(git)
 cli.add_command(status)
 cli.add_command(update)
 cli.add_command(merge)
+cli.add_command(tree)

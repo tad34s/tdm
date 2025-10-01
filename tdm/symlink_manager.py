@@ -18,13 +18,11 @@ class SymlinkManager:
         self.state = state
         self.target_dir = target_dir if target_dir else Path.home()
         self.backup_location = backup_location
-        self.nodes = self.current_tree(
-            self.state, self.src_dir, self.target_dir, self.backup_location
-        )
+        self.nodes = self.current_tree(self.state, self.target_dir, self.backup_location)
 
     @staticmethod
     def symlinked_nodes_iter(
-        state: State, src_dir: Path, target_dir_base: Path, backup_location: Path | None
+        state: State, target_dir_base: Path, backup_location: Path | None
     ) -> Generator[SymlinkNode]:
         """Iterates over currently symlinked nodes."""
         for relative_path_str in state.symlinked_nodes:
@@ -39,12 +37,13 @@ class SymlinkManager:
                 backup_base=backup_location,
             )
 
+    # TODO: if file not there maybe try to dicscover the tree - recover from bad state
     @staticmethod
     def current_tree(
-        state: State, src_dir: Path, target_dir_base: Path, backup_location: Path | None
+        state: State, target_dir_base: Path, backup_location: Path | None
     ) -> list[SymlinkNode]:
         output = []
-        iter = SymlinkManager.symlinked_nodes_iter(state, src_dir, target_dir_base, backup_location)
+        iter = SymlinkManager.symlinked_nodes_iter(state, target_dir_base, backup_location)
         for node in iter:
             if not node.src_path.exists():  # the dotfile was somehow deleted, can happen
                 print("unlinking", node.target_path)
