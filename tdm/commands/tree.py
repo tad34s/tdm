@@ -95,7 +95,7 @@ def tree():
         error("No tdm repo deployed.")
         return
 
-    symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
+    symlink_manager = SymlinkManager.current(state, backup_location=state.backup_location())
 
     nodes = [x for x in symlink_manager.symlinked_nodes_iter(state, Path.home(), None)]
 

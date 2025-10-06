@@ -44,14 +44,15 @@ def deploy(path: str, profile: str, name: str | None, bootstrap: bool) -> None:
     # remove symlinks from current state
     curr_state = State.current()
     if curr_state:
-        symlink_manager = SymlinkManager(
-            curr_state, curr_state.file_dir, backup_location=curr_state.backup_location()
+        symlink_manager = SymlinkManager.current(
+            curr_state, backup_location=curr_state.backup_location()
         )
         symlink_manager.desymlink(True)
 
     # symlink new state
     state = State(dotfiles_repo, profile)
-    symlink_manager = SymlinkManager(state, state.file_dir)
+    symlink_manager = SymlinkManager.new(state, backup_location=state.backup_location())
+
     symlink_manager.symlink()
     if bootstrap:
         state.run_bootstrap()

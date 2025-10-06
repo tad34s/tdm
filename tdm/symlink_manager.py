@@ -11,6 +11,7 @@ class SymlinkManager:
         self,
         state: State,
         src_dir: Path,
+        nodes: list[SymlinkNode],
         target_dir: Path | None = None,
         backup_location: Path | None = None,
     ) -> None:
@@ -18,7 +19,7 @@ class SymlinkManager:
         self.state = state
         self.target_dir = target_dir if target_dir else Path.home()
         self.backup_location = backup_location
-        self.nodes = self.current_tree(self.state, self.target_dir, self.backup_location)
+        self.nodes = nodes
 
     @staticmethod
     def symlinked_nodes_iter(
@@ -46,11 +47,36 @@ class SymlinkManager:
         iter = SymlinkManager.symlinked_nodes_iter(state, target_dir_base, backup_location)
         for node in iter:
             if not node.src_path.exists():  # the dotfile was somehow deleted, can happen
-                print("unlinking", node.target_path)
                 node.target_path.unlink()  # we delete the broken symlink
             else:
                 output.append(node)
         return output
+
+    @classmethod
+    def current(
+        cls,
+        state: State,
+        backup_location: Path | None = None,
+    ) -> "SymlinkManager":
+        return cls(
+            state,
+            state.file_dir,
+            cls.current_tree(state, Path.home(), backup_location),
+            backup_location=backup_location,
+        )
+
+    @classmethod
+    def new(
+        cls,
+        state: State,
+        backup_location: Path | None = None,
+    ) -> "SymlinkManager":
+        return cls(
+            state,
+            state.file_dir,
+            cls.create_tree(state, state.file_dir, Path.home(), backup_location),
+            backup_location=backup_location,
+        )
 
     def symlink(self):
         for node in self.nodes:

@@ -43,7 +43,7 @@ def patch():
         error("No tdm repo deployed.")
         return
 
-    symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
+    symlink_manager = SymlinkManager.current(state, backup_location=state.backup_location())
     for dir in state.added_dirs:
         if not (state.file_dir / dir).exists():
             state.remove_added_dir(dir)

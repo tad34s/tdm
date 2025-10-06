@@ -66,7 +66,7 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         )
         return
 
-    symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
+    symlink_manager = SymlinkManager.current(state, backup_location=state.backup_location())
 
     relative_path = state.get_relative_path(resource)
     dotfile_path = state.file_dir / relative_path

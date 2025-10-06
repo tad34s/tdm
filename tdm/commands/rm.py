@@ -26,7 +26,7 @@ def rm(path: str, keep: bool, delete: bool):
         error("No tdm repo deployed.")
         return
 
-    symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
+    symlink_manager = SymlinkManager.current(state, backup_location=state.backup_location())
     relative_path = state.get_relative_path(resource)
 
     if not state.is_managed(relative_path):

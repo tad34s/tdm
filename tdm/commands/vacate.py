@@ -15,7 +15,7 @@ def vacate(keep: bool) -> None:
     if not state:
         error("No tdm repo deployed.")
         return
-    symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
+    symlink_manager = SymlinkManager.current(state, backup_location=state.backup_location())
     if keep:
         symlink_manager.desymlink_keep()
     else:

@@ -24,6 +24,20 @@ FILES: list[File] = [
     ]
 ]
 
+
+FILES2: list[File] = [
+    File(path=Path(x), contents=y)
+    for x, y in [
+        (".config/nvim/lua/user/remaps.lua", "remaps"),
+        (".config/nvim/lua/user/opts.lua", "ops ops"),
+        (".config/polybar/config.ini", "# polybar config"),
+        (".config/polybar/launch.sh", "# polybar script config"),
+        (".bashrc", "different bashrc"),
+        (".config/nvim/.lazy-lock.json", "{}"),
+        (".gitconfig", "# git config"),
+    ]
+]
+
 sample_config = """
 bootstrap = ""  # no script
 

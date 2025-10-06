@@ -63,3 +63,8 @@ def check_files(files: list[File], home: Path):
         real_file = home / file.path
         assert real_file.exists(), f"{str(real_file)} does not exist"
         assert real_file.read_text() == file.contents
+
+
+def check_symlinked(paths: list[Path]):
+    for file in paths:
+        assert file.is_symlink(), f"{str(file)} is not a symlink"

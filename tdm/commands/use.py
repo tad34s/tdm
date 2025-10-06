@@ -15,7 +15,7 @@ def use(profile_name: str, bootstrap: bool):
         error("No tdm repo deployed.")
         return
 
-    symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
+    symlink_manager = SymlinkManager.current(state, backup_location=state.backup_location())
     new_state = State(state.repo, profile_name)
     symlink_manager.state = new_state
     symlink_manager.patch()

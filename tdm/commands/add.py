@@ -38,7 +38,7 @@ def add(path: str):
             ask_continue=True,
         )
 
-    symlink_manager = SymlinkManager(state, state.file_dir, backup_location=state.backup_location())
+    symlink_manager = SymlinkManager.current(state, backup_location=state.backup_location())
 
     if resource.is_dir():
         if dotfile_path.exists():

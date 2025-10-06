@@ -8,7 +8,7 @@ from git import Repo
 from tdm.cli import cli
 from tdm.tests.fixtures import *
 from tdm.tests.fixtures import FILES
-from tdm.tests.utils import assert_result, check_files
+from tdm.tests.utils import assert_result, check_files, check_symlinked
 
 
 def test_deploy_command(deployed_repo: Path, tmp_home: Path) -> None:
@@ -16,8 +16,6 @@ def test_deploy_command(deployed_repo: Path, tmp_home: Path) -> None:
     # Verify state files
     state_file = tmp_home / ".local" / "share" / "tdm" / "state"
     assert state_file.exists()
-
-    file_tree(tmp_home)
 
 
 def test_deploy_command_forks(
@@ -42,9 +40,19 @@ def test_deploy_command_forks(
     assert_result(result, "fork", tmp_home)
     check_files(FILES, tmp_home)
 
+    symlinked: list[Path] = [
+        tmp_home / x
+        for x in [
+            ".bashrc",
+        ]
+    ]
+    check_symlinked(symlinked)
+
     result = runner.invoke(cli, ["deploy", "teckafiles"])
     assert_result(result, "Deploy")
     check_files(FILES, tmp_home)
+
+    # check_symlinked(symlinked)
 
     result = runner.invoke(cli, ["vacate"])
     assert_result(result, "Vacate")
@@ -52,6 +60,8 @@ def test_deploy_command_forks(
     result = runner.invoke(cli, ["deploy", "dotfiles"])
     assert_result(result, "Deploy")
     check_files(FILES, tmp_home)
+
+    check_symlinked(symlinked)
 
     result = runner.invoke(cli, ["vacate"])
     assert_result(result, "Vacate")
