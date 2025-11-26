@@ -3,3 +3,13 @@ zig-out/
 .zig-cache/
 
 debug/
+
+uv.lock
+
+__pycache__/
+
+.python-version
+
+build/
+
+bin/
