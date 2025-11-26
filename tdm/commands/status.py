@@ -8,6 +8,7 @@ from tdm.state import State
 
 @click.command()
 def status() -> None:
+    """Display current profile and repo."""
     state = State.current()
     if not state:
         error("No tdm repo deployed.")

@@ -27,7 +27,7 @@ exclude = []
 @click.argument("path")
 @click.option("--git", "-g", is_flag=True, help="Prompt to add remote.")
 def init(path: str, git: bool) -> None:
-    """Initialize new dotfiles repository"""
+    """Initialize new dotfiles repository."""
 
     dirs = ["files", "forks", "bin"]
     dotfiles_repo = Path(path).resolve()

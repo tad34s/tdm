@@ -9,7 +9,7 @@ from tdm.symlink_manager import SymlinkManager
 @click.argument("profile_name")
 @click.option("--bootstrap", "-b", is_flag=True, help="Run bootstrap script")
 def use(profile_name: str, bootstrap: bool):
-    """Switch to a different profile"""
+    """Switch to a different profile."""
     state = State.current()
     if not state:
         error("No tdm repo deployed.")

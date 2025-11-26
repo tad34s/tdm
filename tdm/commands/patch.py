@@ -38,6 +38,7 @@ def add_new_children(relative_path: Path, state: State):
 
 @click.command
 def patch():
+    """Do the tdm magic. Updates the symlink tree, and some other stuff."""
     state = State.current()
     if not state:
         error("No tdm repo deployed.")

@@ -10,7 +10,7 @@ from tdm.symlink_manager import SymlinkManager
 @click.command()
 @click.option("--keep", "-k", is_flag=True, help="Keep files after removing symlinks")
 def vacate(keep: bool) -> None:
-    """Remove deployed symlinks"""
+    """Remove deployed symlinks and restore state before tdm."""
     state = State.current()
     if not state:
         error("No tdm repo deployed.")

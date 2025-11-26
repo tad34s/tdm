@@ -10,6 +10,7 @@ from tdm.symlink_manager import SymlinkManager
 
 @click.command
 def update():
+    """Get changes from the remote. Runs git pull and tdm update."""
     state = State.current()
     if not state:
         error("No tdm repo deployed.")

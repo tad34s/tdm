@@ -22,7 +22,7 @@ def is_tdm_repo(repo_dir: Path) -> bool:
 @click.option("--name", "-n", default=None, help="Name of the cloned directory")
 @click.option("--bootstrap", "-b", is_flag=True, help="Run bootstrap script")
 def deploy(path: str, profile: str, name: str | None, bootstrap: bool) -> None:
-    """Deploy a dotfiles profile"""
+    """Start using a tdm repo."""
 
     dotfiles_repo: Path = Path()
     if is_git_url(path):

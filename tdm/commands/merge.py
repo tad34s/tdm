@@ -13,6 +13,7 @@ from tdm.state import State
     "--profile", "-p", default=None, help="Fetch the new contents from the profile selected."
 )
 def merge(path: str, profile: str | None):
+    """Open Neovim diff to display and edit differences of the specified file between the current and specified profile."""
     resource = Path(path).resolve()
     if not resource.exists():
         error("Resource does not exist.")

@@ -90,6 +90,7 @@ def file_tree_vertex(vertex: Vertex, prefix: str = "", old_indent="", indent="  
 
 @click.command
 def tree():
+    """Vizualize the how tdm is deployd on the system using a file tree."""
     state = State.current()
     if not state:
         error("No tdm repo deployed.")
