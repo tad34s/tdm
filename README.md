@@ -72,6 +72,38 @@ To summarize:
 - `forks`: For holding different versions of a dotfile. When you create a fork the forked version will be held inside here.
 
 
+To start using your new dotfiles repo run:
+
+```bash
+tdm deploy PATH
+```
+Where `PATH` is the location of your repository.
+
+To add dotfiles to tdm run:
+
+```bash
+tdm add PATH
+```
+
+Here path can be a file or a directory. If it is a directory, tdm remembers this and if a new file appears here it will automatically add it, (if the directory is not symlinked itself of course) when running `tdm patch`.
+
+
+You can specify your profiles in the `config.toml`. If you want to switch between them use.
+```bash
+tdm use PROFILE
+```
+The *base* profile is a default profile that you can't remove. It is the default profile that you use.
+When you are not using the *base* profile, you can create *forks* of the dotfiles you added.
+Fork creates a new file inside `forks/PROFILE/relative_path` and the target of the symlink will instead to files point here.
+
+
+The last command I will introduce you it is `tdm git`. This command I will run the git commands and options specified but inside the currently used repository. So to quickly commit the changes to your dotfiles you can run: `tdm git add ./`, `tdm git commit -m "Tweaking my dotfiles.` and lastly `tdm git push`.
+
+
+
+
+
+
 
 
 
