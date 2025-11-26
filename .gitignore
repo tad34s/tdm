@@ -4,8 +4,6 @@ zig-out/
 
 debug/
 
-uv.lock
-
 __pycache__/
 
 .python-version
