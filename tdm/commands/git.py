@@ -25,18 +25,17 @@ def git(git_args) -> None:
     state.clean_ignored_from_repo(state.file_dir)
 
     try:
-        # Execute git with captured arguments
-        result = subprocess.run(
-            ["git", *git_args], check=False, cwd=state.repo, capture_output=True
-        )
+        cmd = ["git", "--no-pager", "-c", "color.ui=always", *git_args]
+
+        result = subprocess.run(cmd, check=False, cwd=state.repo, capture_output=True)
 
         if result.stdout:
-            if std_out := result.stdout.decode():
-                print_git(std_out)
+            std_out = result.stdout.decode(errors="replace")
+            print_git(std_out)
 
         if result.stderr:
-            if err_out := result.stderr.decode():
-                print_git(err_out, error=True)
+            err_out = result.stderr.decode(errors="replace")
+            print_git(err_out, error=True)
 
     except Exception as e:
         error(f"Failed to execute git: {e}")
