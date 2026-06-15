@@ -21,6 +21,8 @@ FILES: list[File] = [
         (".bashrc", "echo hello from bashrc"),
         (".config/nvim/.lazy-lock.json", "{}"),
         (".gitconfig", "# git config"),
+        ("bin/dev", "dev"),
+        ("bin/dev_kitty", "dev_kitty"),
     ]
 ]
 
@@ -64,7 +66,8 @@ exclude = ["picom.conf"] # adding to exclusion
 
 [server] 
 use-only = [  # if specifies will only use files or directories provided here
-    "nvim"
+    "nvim",
+    "dev"
 ]
 """
 
@@ -161,6 +164,7 @@ def used_repo(tmp_home: Path, runner: CliRunner):
         tmp_home / ".config/polybar",
         tmp_home / ".config/picom.conf",
         tmp_home / ".config/rofi",
+        tmp_home / "bin/",
         tmp_home / ".bashrc",
     ]
 

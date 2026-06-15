@@ -50,8 +50,8 @@ class Config:
         files_location = repo / FILE_DIR_NAME
         use_only = []
         for file in profile_config.get("use-only", []):
-            match = next(files_location.rglob(f"*{escape(file)}*"), None)
-            if match:
+            matches = list(files_location.rglob(f"*{escape(file)}*"))
+            for match in matches:
                 relative_path = match.relative_to(files_location)
                 use_only.append(relative_path)
 
