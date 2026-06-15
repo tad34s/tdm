@@ -68,3 +68,8 @@ def check_files(files: list[File], home: Path):
 def check_symlinked(paths: list[Path]):
     for file in paths:
         assert file.is_symlink(), f"{str(file)} is not a symlink"
+
+
+def check_not_symlinked(paths: list[Path]):
+    for file in paths:
+        assert not file.is_symlink(), f"{str(file)} is a symlink"

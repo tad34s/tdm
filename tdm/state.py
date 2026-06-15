@@ -4,73 +4,74 @@ from pathlib import Path
 
 import tdm.fs_utils as fs
 from tdm.config import Config
+from tdm.names import (
+    ADDED_DIRS,
+    APP_NAME,
+    BACKUP_DIR,
+    BASE_PROFILE,
+    BINARY_DIR,
+    FILE_DIR_NAME,
+    FORK_DIR_NAME,
+    FORKED_DIRS_FILE,
+    REPO_DATA_DIR,
+    STATE_FILE_NAME,
+    SYMLINKED_NODES,
+)
 from tdm.print_to_user import error
 from tdm.symlink_node import SymlinkNode
 
-APP_NAME = "tdm"
-
 
 class State:
-    BASE_PROFILE = "base"
-    FORK_DIR_NAME = "forks"
-    FILE_DIR_NAME = "files"
-    BACKUP_DIR = "original_files"
-    ADDED_DIRS = "added_dirs"
-    SYMLINKED_NODES = "symlinked_nodes"
-    REPO_DATA_DIR = ".tdm"
-    STATE_FILE_NAME = "state"
-    BINARY_DIR = "bin"
-    FORKED_DIRS_FILE = ".forked_dirs"
-
     def __init__(self, repo: Path, profile: str) -> None:
         self.repo = repo
         self.profile = profile
+
+        self.file_dir = self.repo / FILE_DIR_NAME
+        self.fork_dir = self.repo / FORK_DIR_NAME / self.profile
+
         self.config = Config.load(repo, profile)
 
-        self.file_dir = self.repo / self.FILE_DIR_NAME
-        self.fork_dir = self.repo / self.FORK_DIR_NAME / self.profile
-
     def fork_dir_profile(self, profile: str) -> Path:
-        if profile == self.BASE_PROFILE:
+        if profile == BASE_PROFILE:
             return self.file_dir
 
-        return self.repo / self.FORK_DIR_NAME / profile
+        return self.repo / FORK_DIR_NAME / profile
 
     @property
     def forked_dirs(self) -> set[str]:
-        forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
+        forked_dirs_file = self.repo / FORK_DIR_NAME / self.profile / FORKED_DIRS_FILE
         return fs.read_set_file(forked_dirs_file)
 
     @property
     def added_dirs(self) -> set[str]:
-        added_dirs_file = self.repo / self.REPO_DATA_DIR / self.ADDED_DIRS
+        added_dirs_file = self.repo / REPO_DATA_DIR / ADDED_DIRS
         return fs.read_set_file(added_dirs_file)
 
     @property
     def symlinked_nodes(self) -> set[str]:
         # the relative paths of nodes that were symlinked
-        symlinked_nodes_file = self.get_app_data_dir() / self.SYMLINKED_NODES
+        symlinked_nodes_file = self.get_app_data_dir() / SYMLINKED_NODES
         return fs.read_set_file(symlinked_nodes_file)
 
     @property
     def profile_fork_dirs(self):
         """Yields: Paths to directories where each profile stores their forks."""
-        for fork_dir in (self.repo / self.FORK_DIR_NAME).iterdir():
+        for fork_dir in (self.repo / FORK_DIR_NAME).iterdir():
             yield fork_dir
 
     def backup_location(self, create: bool = False) -> Path:
-        path = self.get_app_data_dir() / self.BACKUP_DIR
+        path = self.get_app_data_dir() / BACKUP_DIR
         if create:
             path.mkdir(exist_ok=True, parents=True)
         return path
 
     def add_forked_dir(self, forked_dir: str) -> None:
-        forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
+        forked_dirs_file = self.repo / FORK_DIR_NAME / self.profile / FORKED_DIRS_FILE
 
         assert fs.add_to_set_file(forked_dirs_file, forked_dir)
 
     def remove_forked_dir(self, forked_dir: str) -> None:
-        forked_dirs_file = self.repo / self.FORK_DIR_NAME / self.profile / self.FORKED_DIRS_FILE
+        forked_dirs_file = self.repo / FORK_DIR_NAME / self.profile / FORKED_DIRS_FILE
         assert fs.remove_from_set_file(forked_dirs_file, forked_dir)
 
     def remove_children_in_forked_dir(self, forked_dir: str) -> None:
@@ -78,7 +79,7 @@ class State:
         forked_dirs file.
         """
         for profile_fork_dir in self.profile_fork_dirs:
-            forked_dirs_file = profile_fork_dir / self.FORKED_DIRS_FILE
+            forked_dirs_file = profile_fork_dir / FORKED_DIRS_FILE
             for str_path in fs.read_set_file(forked_dirs_file):
                 if str_path.startswith(forked_dir):  # is a child
                     fs.remove_from_set_file(forked_dirs_file, str_path)
@@ -95,11 +96,11 @@ class State:
             fs.delete(forked_item)
 
     def add_added_dir(self, added_dir: str) -> None:
-        added_dirs_file = self.get_repo_data_dir(create=True) / self.ADDED_DIRS
+        added_dirs_file = self.get_repo_data_dir(create=True) / ADDED_DIRS
         assert fs.add_to_set_file(added_dirs_file, added_dir)
 
     def remove_added_dir(self, added_dir: str) -> None:
-        added_dirs_file = self.get_repo_data_dir(create=True) / self.ADDED_DIRS
+        added_dirs_file = self.get_repo_data_dir(create=True) / ADDED_DIRS
         assert fs.remove_from_set_file(added_dirs_file, added_dir)
 
     def remove_children_in_added_dir(self, added_dir: str) -> None:
@@ -112,7 +113,7 @@ class State:
         new_symlinked_nodes: list[SymlinkNode],
         old_symlinked_nodes: set[str] | None = None,
     ) -> None:
-        symlinked_nodes_file = self.get_app_data_dir() / self.SYMLINKED_NODES
+        symlinked_nodes_file = self.get_app_data_dir() / SYMLINKED_NODES
         if old_symlinked_nodes is None and symlinked_nodes_file.exists():
             old_symlinked_nodes = self.symlinked_nodes
 
@@ -138,7 +139,7 @@ class State:
     def current(cls) -> "State | None":
         """Load the state currently used"""
         app_dir = cls.get_app_data_dir()
-        state_file = app_dir / cls.STATE_FILE_NAME
+        state_file = app_dir / STATE_FILE_NAME
         if not state_file.exists():
             return None
         with state_file.open("r") as f:
@@ -157,6 +158,12 @@ class State:
         return any(x in str(relative_path) for x in self.config.ignore)
 
     def is_excluded(self, relative_path: Path) -> bool:
+        if self.config.use_only:
+            return not any(
+                relative_path.is_relative_to(x) or x.is_relative_to(relative_path)
+                for x in self.config.use_only
+            )
+
         return any(x in str(relative_path) for x in self.config.exclude)
 
     def get_relative_path(self, resource: Path) -> Path:
@@ -170,19 +177,19 @@ class State:
 
     def save(self) -> None:
         app_dir = self.get_app_data_dir(create=True)
-        state_file = app_dir / self.STATE_FILE_NAME
+        state_file = app_dir / STATE_FILE_NAME
         with state_file.open("w") as f:
             f.writelines([str(self.repo) + "\n", self.profile + "\n"])
 
     def delete(self) -> None:
         app_dir = self.get_app_data_dir(create=True)
-        state_file = app_dir / self.STATE_FILE_NAME
+        state_file = app_dir / STATE_FILE_NAME
         state_file.unlink()
 
     def clean_app_dir(self) -> None:
         app_dir = self.get_app_data_dir()
-        state_file = app_dir / self.STATE_FILE_NAME
-        backup_dir = app_dir / self.BACKUP_DIR
+        state_file = app_dir / STATE_FILE_NAME
+        backup_dir = app_dir / BACKUP_DIR
         if state_file.exists():
             fs.delete(state_file)
         if backup_dir.exists():
@@ -207,7 +214,7 @@ class State:
 
     def is_forked(self, relative_path: Path) -> bool:
         for profile_fork_dir in self.profile_fork_dirs:
-            forked_dirs_file = profile_fork_dir / self.FORKED_DIRS_FILE
+            forked_dirs_file = profile_fork_dir / FORKED_DIRS_FILE
             forked_dirs = fs.read_set_file(forked_dirs_file)
             if str(relative_path) in forked_dirs:
                 return True
@@ -233,7 +240,7 @@ class State:
         return False
 
     def get_repo_data_dir(self, create=False) -> Path:
-        data_dir = self.repo / self.REPO_DATA_DIR
+        data_dir = self.repo / REPO_DATA_DIR
         if create:
             data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir
@@ -252,7 +259,7 @@ class State:
             print("No bootstrap specified.")
             return
 
-        bootstrap_script = self.repo / self.BINARY_DIR / self.config.bootstrap
+        bootstrap_script = self.repo / BINARY_DIR / self.config.bootstrap
 
         if not bootstrap_script.exists():
             error("Bootstrap script specified does not exists.")
@@ -262,7 +269,7 @@ class State:
         try:
             result = subprocess.run(
                 str(bootstrap_script),
-                cwd=str(self.repo / self.BINARY_DIR),
+                cwd=str(self.repo / BINARY_DIR),
             )
             if result.returncode != 0:
                 if std_out := result.stderr.decode():
@@ -277,7 +284,7 @@ class State:
             error(f"Failed to execute bootstrap: {e}.")
 
     def remove_backup(self, relative_path: Path):
-        backup = self.get_app_data_dir() / self.BACKUP_DIR / relative_path
+        backup = self.get_app_data_dir() / BACKUP_DIR / relative_path
         if backup.exists():
             fs.delete(backup)
 

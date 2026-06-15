@@ -3,6 +3,7 @@ from pathlib import Path
 import click
 
 import tdm.fs_utils as fs
+from tdm import names
 from tdm.print_to_user import error, success, warning
 from tdm.state import State
 from tdm.symlink_manager import SymlinkManager
@@ -29,7 +30,7 @@ def has_symlink_in_relative_path(base_path, relative_path):
 
 
 def get_the_other_fork(state: State, profile: str) -> Path:
-    if profile == state.BASE_PROFILE:
+    if profile == names.BASE_PROFILE:
         origin_fork_dir = state.file_dir
     else:
         origin_fork_dir = state.fork_dir_profile(profile)
@@ -60,7 +61,7 @@ def fork(path: str, profile: str | None, symlink: bool = False):
         error("No tdm repo deployed.")
         return
 
-    if state.profile == state.BASE_PROFILE:
+    if state.profile == names.BASE_PROFILE:
         error(
             "Cannot fork in the base profile. To be able to fork, create a new profile in the \033[3mconfig.toml\033[0m. file, and switch to it with the use command."
         )

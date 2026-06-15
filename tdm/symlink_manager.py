@@ -153,8 +153,9 @@ class SymlinkManager:
         added_dirs: set[str],
         dir_added: bool = False,
     ) -> tuple[list[SymlinkNode], bool]:
-        if state.is_excluded(curr_src_dir) or state.is_ignored(curr_src_dir):
-            return [], False
+
+        # if state.is_excluded(curr_src_dir) or state.is_ignored(curr_src_dir):
+        #     return [], False
         relative_path = curr_src_dir.relative_to(src_dir_base)
         should_symlink_all = dir_added or str(relative_path) in added_dirs
         could_symlink_all = should_symlink_all

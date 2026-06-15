@@ -1,6 +1,8 @@
 import tomllib
+from glob import escape
 from pathlib import Path
 
+from tdm.names import FILE_DIR_NAME
 from tdm.print_to_user import error
 
 DEFAULT_PROFILE_NAME = "base"
@@ -11,13 +13,15 @@ class Config:
         self,
         exclude: list[str],
         ignore: list[str],
-        use_only: list[str] | None,
+        use_only: list[Path],
         bootstrap: str | None,
     ) -> None:
         self.exclude: list[str] = exclude
         self.ignore: list[str] = ignore
-        self.use_only: list[str] | None = use_only
+        self.use_only: list[Path] = use_only
         self.bootstrap: str | None = bootstrap
+
+        # NOTE: When we are using 'use_only' we already find the relative paths, because the logic is more complicated there and having the paths ready makes it easier (so that we do not mark the parents as excluded)
 
     @staticmethod
     def load(repo: Path, profile: str) -> "Config":
@@ -25,7 +29,7 @@ class Config:
             data = tomllib.load(f)
         exclude = data.get("exclude", [])
         ignore = data.get("ignore", [])
-        use_only = data.get("use-only")
+        use_only = data.get("use-only", [])
         bootstrap = data.get("bootstrap", "")
         bootstrap = bootstrap if bootstrap else None
 
@@ -35,7 +39,7 @@ class Config:
         profile_config = data.get(profile)
         if profile_config is None:
             error("Profile not found.")
-            return Config([], [], None, bootstrap)  # unreachable, for linter :D
+            return Config([], [], [], bootstrap)  # unreachable, for linter :D
 
         for file in profile_config.get("exclude", []):
             exclude.append(file)
@@ -43,8 +47,15 @@ class Config:
         for file in profile_config.get("include", []):
             exclude.remove(file)
 
-        use_only = profile_config.get("use-only")
+        files_location = repo / FILE_DIR_NAME
+        use_only = []
+        for file in profile_config.get("use-only", []):
+            match = next(files_location.rglob(f"*{escape(file)}*"), None)
+            if match:
+                relative_path = match.relative_to(files_location)
+                use_only.append(relative_path)
+
         bootstrap = profile_config.get("bootstrap", bootstrap)
-        bootstrap = bootstrap if bootstrap else None
+        bootstrap = bootstrap or None
 
         return Config(exclude, ignore, use_only, bootstrap)
